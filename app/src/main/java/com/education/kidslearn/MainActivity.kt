@@ -60,16 +60,16 @@ private val darkText = Color(0xFF263238)
 private val cardBorder = Color(0xFFE1DDD4)
 
 private val pastelColors = listOf(
-    Color(0xFFE0F2E9), // Mint
-    Color(0xFFFFF1C9), // Pale yellow
-    Color(0xFFDCEEFF), // Sky blue
-    Color(0xFFEDE1FF), // Lavender
-    Color(0xFFFFE4D6), // Peach
-    Color(0xFFFCE4EC), // Pink
-    Color(0xFFE0F7FA), // Aqua
-    Color(0xFFF1F8E9), // Pale green
-    Color(0xFFFFF3E0), // Cream
-    Color(0xFFE8EAF6)  // Pale indigo
+    Color(0xFFE0F2E9),
+    Color(0xFFFFF1C9),
+    Color(0xFFDCEEFF),
+    Color(0xFFEDE1FF),
+    Color(0xFFFFE4D6),
+    Color(0xFFFCE4EC),
+    Color(0xFFE0F7FA),
+    Color(0xFFF1F8E9),
+    Color(0xFFFFF3E0),
+    Color(0xFFE8EAF6)
 )
 
 private data class LearningCategory(
@@ -265,7 +265,9 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun KidsLearnApp(onSpeak: (String) -> Unit) {
-    var selectedCategory by remember { mutableStateOf<String?>(null) }
+    var selectedCategory by remember {
+        mutableStateOf<String?>(null)
+    }
 
     BackHandler(enabled = selectedCategory != null) {
         selectedCategory = null
@@ -276,15 +278,20 @@ private fun KidsLearnApp(onSpeak: (String) -> Unit) {
             onCategorySelected = { selectedCategory = it }
         )
     } else {
-        val items = when (selectedCategory) {
+        val baseItems = when (selectedCategory) {
             "Animals" -> animals
             "Birds" -> birds
             else -> sampleItems(selectedCategory!!)
         }
 
+        // Shuffle once per category visit, not on every recomposition.
+        val shuffledItems = remember(selectedCategory) {
+            baseItems.shuffled()
+        }
+
         SingleItemLearningScreen(
             title = selectedCategory!!,
-            items = items,
+            items = shuffledItems,
             onBack = { selectedCategory = null },
             onSpeak = onSpeak
         )
@@ -380,11 +387,6 @@ private fun SingleItemLearningScreen(
         mutableIntStateOf(0)
     }
 
-    // New background and mirror choice are generated for each item visit.
-    var visitId by remember(title) {
-        mutableIntStateOf(0)
-    }
-
     var backgroundColor by remember(title) {
         mutableStateOf(pastelColors.random())
     }
@@ -398,14 +400,16 @@ private fun SingleItemLearningScreen(
     val item = items[currentIndex]
 
     fun moveTo(newIndex: Int) {
-        if (newIndex in items.indices && newIndex != currentIndex) {
-            currentIndex = newIndex
-            visitId++
+        if (items.isNotEmpty()) {
+            // Wrap around at both ends.
+            currentIndex = (newIndex + items.size) % items.size
 
+            // Choose a different pastel color on each navigation.
             backgroundColor = pastelColors
                 .filter { it != backgroundColor }
                 .random()
 
+            // Each new item has a 50% chance of being mirrored.
             flipHorizontally = Random.nextBoolean()
         }
     }
@@ -470,13 +474,11 @@ private fun SingleItemLearningScreen(
                     detectHorizontalDragGestures(
                         onDragEnd = {
                             when {
-                                totalDrag < -80f &&
-                                        currentIndex < items.lastIndex -> {
+                                totalDrag < -80f -> {
                                     moveTo(currentIndex + 1)
                                 }
 
-                                totalDrag > 80f &&
-                                        currentIndex > 0 -> {
+                                totalDrag > 80f -> {
                                     moveTo(currentIndex - 1)
                                 }
                             }
