@@ -6,9 +6,11 @@ import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,17 +35,21 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -51,6 +57,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 private data class LearningCategory(
     val name: String,
@@ -64,6 +71,26 @@ private data class LearningItem(
     val color: Color,
     val assetPath: String? = null
 )
+
+private val canvasColors = listOf(
+    Color(0xFFE3F2FD), // soft blue
+    Color(0xFFFFF3E0), // warm cream
+    Color(0xFFE8F5E9), // soft green
+    Color(0xFFFFEBEE), // blush pink
+    Color(0xFFFFF9C4), // pale yellow
+    Color(0xFFEDE7F6), // lavender
+    Color(0xFFF3E5F5), // lilac
+    Color(0xFFE0F7FA), // pale aqua
+    Color(0xFFFFE0B2), // peach
+    Color(0xFFF1F8E9), // light lime
+    Color(0xFFECEFF1), // mist grey
+    Color(0xFFFFF8E1)  // vanilla
+)
+
+private fun nextCanvasColor(current: Color): Color {
+    val alternatives = canvasColors.filter { it != current }
+    return alternatives.random()
+}
 
 private val categories = listOf(
     LearningCategory("Animals", "🐘", Color(0xFFE3F2FD)),
@@ -262,6 +289,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onStop() {
+        stopSpeech()
+        super.onStop()
     }
 
     private fun speakWord(word: String) {
@@ -503,10 +535,20 @@ private fun LearningScreen(
         mutableFloatStateOf(0f)
     }
 
+    val canvasScale = remember { Animatable(1f) }
+    val animationScope = rememberCoroutineScope()
+    val canvasInteractionSource = remember { MutableInteractionSource() }
+
     val item = shuffledItems.getOrNull(currentIndex)
+    var canvasColor by remember(category.name) {
+        mutableStateOf(canvasColors.random())
+    }
 
     LaunchedEffect(category.name, item?.name) {
-        item?.let { onSpeak(it.name) }
+        item?.let {
+            canvasColor = nextCanvasColor(canvasColor)
+            onSpeak(it.name)
+        }
     }
 
     Scaffold(
@@ -530,7 +572,9 @@ private fun LearningScreen(
                 }
             )
         },
-        containerColor = item?.color ?: Color(0xFFFFFBF5)
+        // Keep the learning screen body consistent with the home screen signature background.
+        // Only the rounded image canvas changes color randomly.
+        containerColor = Color(0xFFFFFBF5)
     ) { padding ->
         if (item != null) {
             Column(
@@ -551,57 +595,71 @@ private fun LearningScreen(
                     )
                 )
 
-                Box(
+                Card(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .pointerInput(category.name, currentIndex) {
-                            detectHorizontalDragGestures(
-                                onHorizontalDrag = { _, dragAmount ->
-                                    totalDrag += dragAmount
-                                },
-                                onDragEnd = {
-                                    if (totalDrag < -60f) {
-                                        currentIndex =
-                                            (currentIndex + 1) %
-                                                    shuffledItems.size
-                                    } else if (totalDrag > 60f) {
-                                        currentIndex =
-                                            if (currentIndex == 0) {
-                                                shuffledItems.lastIndex
-                                            } else {
-                                                currentIndex - 1
-                                            }
-                                    }
-
-                                    totalDrag = 0f
-                                },
-                                onDragCancel = {
-                                    totalDrag = 0f
-                                }
-                            )
-                        },
-                    contentAlignment = Alignment.Center
+                        .padding(vertical = 8.dp),
+                    shape = RoundedCornerShape(28.dp),
+                    border = BorderStroke(1.dp, Color(0xFFE0D8CC)),
+                    colors = CardDefaults.cardColors(
+                        containerColor = canvasColor
+                    ),
+                    elevation = CardDefaults.cardElevation(
+                        defaultElevation = 5.dp
+                    )
                 ) {
-                    Card(
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp)
-                            .clickable {
+                            .fillMaxSize()
+                            .clickable(
+                                interactionSource = canvasInteractionSource,
+                                indication = null
+                            ) {
+                                animationScope.launch {
+                                    canvasScale.animateTo(
+                                        targetValue = 1.045f,
+                                        animationSpec = tween(durationMillis = 100)
+                                    )
+                                    canvasScale.animateTo(
+                                        targetValue = 1f,
+                                        animationSpec = tween(durationMillis = 180)
+                                    )
+                                }
                                 onSpeak(item.name)
+                            }
+                            .pointerInput(category.name, currentIndex) {
+                                detectHorizontalDragGestures(
+                                    onHorizontalDrag = { _, dragAmount ->
+                                        totalDrag += dragAmount
+                                    },
+                                    onDragEnd = {
+                                        if (totalDrag < -60f) {
+                                            currentIndex =
+                                                (currentIndex + 1) %
+                                                        shuffledItems.size
+                                        } else if (totalDrag > 60f) {
+                                            currentIndex =
+                                                if (currentIndex == 0) {
+                                                    shuffledItems.lastIndex
+                                                } else {
+                                                    currentIndex - 1
+                                                }
+                                        }
+
+                                        totalDrag = 0f
+                                    },
+                                    onDragCancel = {
+                                        totalDrag = 0f
+                                    }
+                                )
                             },
-                        shape = RoundedCornerShape(28.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color.White.copy(alpha = 0.88f)
-                        ),
-                        elevation = CardDefaults.cardElevation(
-                            defaultElevation = 5.dp
-                        )
+                        contentAlignment = Alignment.Center
                     ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
+                                .padding(vertical = 8.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
@@ -609,7 +667,8 @@ private fun LearningScreen(
                                 item = item,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .weight(1f)
+                                    .weight(1f),
+                                animationScale = canvasScale.value
                             )
 
                             Spacer(modifier = Modifier.height(12.dp))
@@ -619,11 +678,7 @@ private fun LearningScreen(
                                 fontSize = 32.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF263238),
-                                modifier = Modifier
-                                    .clickable {
-                                        onSpeak(item.name)
-                                    }
-                                    .padding(8.dp)
+                                modifier = Modifier.padding(8.dp)
                             )
                         }
                     }
@@ -670,9 +725,15 @@ private fun LearningScreen(
 @Composable
 private fun ItemPicture(
     item: LearningItem,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    animationScale: Float = 1f
 ) {
     val context = LocalContext.current
+
+    // Randomize horizontal flipping once whenever the displayed item changes.
+    val flipHorizontally = remember(item.name) {
+        kotlin.random.Random.nextBoolean()
+    }
 
     val bitmap = remember(item.assetPath) {
         item.assetPath?.let { path ->
@@ -688,12 +749,15 @@ private fun ItemPicture(
         Image(
             bitmap = bitmap,
             contentDescription = item.name,
-            modifier = modifier,
+            modifier = modifier.scale(
+                scaleX = (if (flipHorizontally) -1f else 1f) * animationScale,
+                scaleY = animationScale
+            ),
             contentScale = ContentScale.Fit
         )
     } else {
         Box(
-            modifier = modifier,
+            modifier = modifier.scale(animationScale),
             contentAlignment = Alignment.Center
         ) {
             Text(
