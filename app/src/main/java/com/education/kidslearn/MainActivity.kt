@@ -73,7 +73,7 @@ private val animals = listOf(
     LearningItem("Lion", "🦁", Color(0xFFFFE0B2), R.drawable.lion),
     LearningItem("Elephant", "🐘", Color(0xFFBBDEFB), R.drawable.elephant),
     LearningItem("Tiger", "🐅", Color(0xFFFFCCBC), R.drawable.tiger),
-    LearningItem("Monkey", "🐒", Color(0xFFD7CCC8)),
+    LearningItem("Monkey", "🐒", Color(0xFFD7CCC8), imageRes = R.drawable.monkey),
     LearningItem("Giraffe", "🦒", Color(0xFFFFF9C4)),
     LearningItem("Rabbit", "🐇", Color(0xFFF8BBD0), R.drawable.rabbit),
     LearningItem("Bear", "🐻", Color(0xFFD7CCC8)),
