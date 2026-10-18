@@ -4,8 +4,8 @@ package com.education.kidslearn
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -28,7 +28,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,7 +46,7 @@ private data class LearningCategory(
     val color: Color
 )
 
-private data class Animal(
+private data class LearningItem(
     val name: String,
     val emoji: String,
     val color: Color
@@ -67,26 +66,49 @@ private val categories = listOf(
 )
 
 private val animals = listOf(
-    Animal("Lion", "🦁", Color(0xFFFFE0B2)),
-    Animal("Elephant", "🐘", Color(0xFFBBDEFB)),
-    Animal("Tiger", "🐅", Color(0xFFFFCCBC)),
-    Animal("Monkey", "🐒", Color(0xFFD7CCC8)),
-    Animal("Giraffe", "🦒", Color(0xFFFFF9C4)),
-    Animal("Rabbit", "🐇", Color(0xFFF8BBD0)),
-    Animal("Bear", "🐻", Color(0xFFD7CCC8)),
-    Animal("Dog", "🐕", Color(0xFFC8E6C9)),
-    Animal("Cat", "🐈", Color(0xFFE1BEE7)),
-    Animal("Cow", "🐄", Color(0xFFBBDEFB)),
-    Animal("Horse", "🐎", Color(0xFFFFE0B2)),
-    Animal("Fox", "🦊", Color(0xFFFFCCBC)),
-    Animal("Panda", "🐼", Color(0xFFE0E0E0)),
-    Animal("Sheep", "🐑", Color(0xFFF5F5F5)),
-    Animal("Pig", "🐖", Color(0xFFF8BBD0)),
-    Animal("Goat", "🐐", Color(0xFFD7CCC8)),
-    Animal("Deer", "🦌", Color(0xFFFFF9C4)),
-    Animal("Wolf", "🐺", Color(0xFFCFD8DC)),
-    Animal("Frog", "🐸", Color(0xFFC8E6C9)),
-    Animal("Turtle", "🐢", Color(0xFFB2DFDB))
+    LearningItem("Lion", "🦁", Color(0xFFFFE0B2)),
+    LearningItem("Elephant", "🐘", Color(0xFFBBDEFB)),
+    LearningItem("Tiger", "🐅", Color(0xFFFFCCBC)),
+    LearningItem("Monkey", "🐒", Color(0xFFD7CCC8)),
+    LearningItem("Giraffe", "🦒", Color(0xFFFFF9C4)),
+    LearningItem("Rabbit", "🐇", Color(0xFFF8BBD0)),
+    LearningItem("Bear", "🐻", Color(0xFFD7CCC8)),
+    LearningItem("Dog", "🐕", Color(0xFFC8E6C9)),
+    LearningItem("Cat", "🐈", Color(0xFFE1BEE7)),
+    LearningItem("Cow", "🐄", Color(0xFFBBDEFB)),
+    LearningItem("Horse", "🐎", Color(0xFFFFE0B2)),
+    LearningItem("Fox", "🦊", Color(0xFFFFCCBC)),
+    LearningItem("Panda", "🐼", Color(0xFFE0E0E0)),
+    LearningItem("Sheep", "🐑", Color(0xFFF5F5F5)),
+    LearningItem("Pig", "🐖", Color(0xFFF8BBD0)),
+    LearningItem("Goat", "🐐", Color(0xFFD7CCC8)),
+    LearningItem("Deer", "🦌", Color(0xFFFFF9C4)),
+    LearningItem("Wolf", "🐺", Color(0xFFCFD8DC)),
+    LearningItem("Frog", "🐸", Color(0xFFC8E6C9)),
+    LearningItem("Turtle", "🐢", Color(0xFFB2DFDB))
+)
+
+private val birds = listOf(
+    LearningItem("Parrot", "🦜", Color(0xFFC8E6C9)),
+    LearningItem("Peacock", "🦚", Color(0xFFBBDEFB)),
+    LearningItem("Sparrow", "🐦", Color(0xFFFFE0B2)),
+    LearningItem("Eagle", "🦅", Color(0xFFD7CCC8)),
+    LearningItem("Owl", "🦉", Color(0xFFE1BEE7)),
+    LearningItem("Pigeon", "🕊️", Color(0xFFCFD8DC)),
+    LearningItem("Duck", "🦆", Color(0xFFFFF9C4)),
+    LearningItem("Chicken", "🐔", Color(0xFFFFCCBC)),
+    LearningItem("Rooster", "🐓", Color(0xFFF8BBD0)),
+    LearningItem("Swan", "🦢", Color(0xFFE0F2F1)),
+    LearningItem("Flamingo", "🦩", Color(0xFFF8BBD0)),
+    LearningItem("Turkey", "🦃", Color(0xFFD7CCC8)),
+    LearningItem("Penguin", "🐧", Color(0xFFBBDEFB)),
+    LearningItem("Woodpecker", "🐦", Color(0xFFFFCDD2)),
+    LearningItem("Kingfisher", "🐦", Color(0xFFB2DFDB)),
+    LearningItem("Crow", "🐦‍⬛", Color(0xFFCFD8DC)),
+    LearningItem("Hummingbird", "🐦", Color(0xFFD1C4E9)),
+    LearningItem("Seagull", "🕊️", Color(0xFFE0E0E0)),
+    LearningItem("Ostrich", "🪶", Color(0xFFFFE0B2)),
+    LearningItem("Cuckoo", "🐦", Color(0xFFFFF9C4))
 )
 
 class MainActivity : ComponentActivity() {
@@ -99,8 +121,14 @@ class MainActivity : ComponentActivity() {
 
         textToSpeech = TextToSpeech(this) { status ->
             ttsReady = status == TextToSpeech.SUCCESS
+
             if (ttsReady) {
-                textToSpeech?.language = Locale.UK
+                val result = textToSpeech?.setLanguage(Locale.UK)
+                if (result == TextToSpeech.LANG_MISSING_DATA ||
+                    result == TextToSpeech.LANG_NOT_SUPPORTED
+                ) {
+                    ttsReady = false
+                }
             }
         }
 
@@ -145,13 +173,24 @@ private fun KidsLearnApp(onSpeak: (String) -> Unit) {
         selectedCategory = null
     }
 
-    if (selectedCategory?.name == "Animals") {
-        AnimalsScreen(
+    when (selectedCategory?.name) {
+        "Animals" -> LearningScreen(
+            title = "Meet the Animals 🐾",
+            instruction = "Tap any animal to learn its name!",
+            items = animals,
             onBack = { selectedCategory = null },
             onSpeak = onSpeak
         )
-    } else {
-        HomeScreen(
+
+        "Birds" -> LearningScreen(
+            title = "Meet the Birds 🐦",
+            instruction = "Tap any bird to learn its name!",
+            items = birds,
+            onBack = { selectedCategory = null },
+            onSpeak = onSpeak
+        )
+
+        else -> HomeScreen(
             selectedCategory = selectedCategory,
             onCategoryClick = { selectedCategory = it }
         )
@@ -230,6 +269,7 @@ private fun CategoryCard(
             verticalArrangement = Arrangement.Center
         ) {
             Text(text = category.emoji, fontSize = 48.sp)
+
             Text(
                 text = category.name,
                 fontSize = 17.sp,
@@ -242,7 +282,10 @@ private fun CategoryCard(
 }
 
 @Composable
-private fun AnimalsScreen(
+private fun LearningScreen(
+    title: String,
+    instruction: String,
+    items: List<LearningItem>,
     onBack: () -> Unit,
     onSpeak: (String) -> Unit
 ) {
@@ -261,7 +304,7 @@ private fun AnimalsScreen(
             }
 
             Text(
-                text = "Meet the Animals 🐾",
+                text = title,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color(0xFF3949AB),
@@ -270,7 +313,7 @@ private fun AnimalsScreen(
         }
 
         Text(
-            text = "Tap any animal to learn its name!",
+            text = instruction,
             fontSize = 15.sp,
             color = Color(0xFF616161),
             modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
@@ -283,9 +326,9 @@ private fun AnimalsScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(animals) { animal ->
-                AnimalCard(animal = animal) {
-                    onSpeak(animal.name)
+            items(items) { item ->
+                LearningItemCard(item = item) {
+                    onSpeak(item.name)
                 }
             }
         }
@@ -293,8 +336,8 @@ private fun AnimalsScreen(
 }
 
 @Composable
-private fun AnimalCard(
-    animal: Animal,
+private fun LearningItemCard(
+    item: LearningItem,
     onClick: () -> Unit
 ) {
     Card(
@@ -303,7 +346,7 @@ private fun AnimalCard(
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(
-            containerColor = animal.color
+            containerColor = item.color
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
@@ -317,11 +360,11 @@ private fun AnimalCard(
                 modifier = Modifier.size(76.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = animal.emoji, fontSize = 52.sp)
+                Text(text = item.emoji, fontSize = 52.sp)
             }
 
             Text(
-                text = animal.name,
+                text = item.name,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF263238),
