@@ -6,6 +6,7 @@ import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -15,8 +16,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -35,6 +36,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -49,7 +52,8 @@ private data class LearningCategory(
 private data class LearningItem(
     val name: String,
     val emoji: String,
-    val color: Color
+    val color: Color,
+    val imageRes: Int? = null
 )
 
 private val categories = listOf(
@@ -66,19 +70,19 @@ private val categories = listOf(
 )
 
 private val animals = listOf(
-    LearningItem("Lion", "🦁", Color(0xFFFFE0B2)),
-    LearningItem("Elephant", "🐘", Color(0xFFBBDEFB)),
-    LearningItem("Tiger", "🐅", Color(0xFFFFCCBC)),
+    LearningItem("Lion", "🦁", Color(0xFFFFE0B2), R.drawable.lion),
+    LearningItem("Elephant", "🐘", Color(0xFFBBDEFB), R.drawable.elephant),
+    LearningItem("Tiger", "🐅", Color(0xFFFFCCBC), R.drawable.tiger),
     LearningItem("Monkey", "🐒", Color(0xFFD7CCC8)),
     LearningItem("Giraffe", "🦒", Color(0xFFFFF9C4)),
-    LearningItem("Rabbit", "🐇", Color(0xFFF8BBD0)),
+    LearningItem("Rabbit", "🐇", Color(0xFFF8BBD0), R.drawable.rabbit),
     LearningItem("Bear", "🐻", Color(0xFFD7CCC8)),
     LearningItem("Dog", "🐕", Color(0xFFC8E6C9)),
     LearningItem("Cat", "🐈", Color(0xFFE1BEE7)),
     LearningItem("Cow", "🐄", Color(0xFFBBDEFB)),
     LearningItem("Horse", "🐎", Color(0xFFFFE0B2)),
     LearningItem("Fox", "🦊", Color(0xFFFFCCBC)),
-    LearningItem("Panda", "🐼", Color(0xFFE0E0E0)),
+    LearningItem("Panda", "🐼", Color(0xFFE0E0E0), R.drawable.panda),
     LearningItem("Sheep", "🐑", Color(0xFFF5F5F5)),
     LearningItem("Pig", "🐖", Color(0xFFF8BBD0)),
     LearningItem("Goat", "🐐", Color(0xFFD7CCC8)),
@@ -124,6 +128,7 @@ class MainActivity : ComponentActivity() {
 
             if (ttsReady) {
                 val result = textToSpeech?.setLanguage(Locale.UK)
+
                 if (result == TextToSpeech.LANG_MISSING_DATA ||
                     result == TextToSpeech.LANG_NOT_SUPPORTED
                 ) {
@@ -223,8 +228,9 @@ private fun HomeScreen(
         )
 
         Text(
-            text = selectedCategory?.let { "${it.emoji} ${it.name}" }
-                ?: "Choose a category",
+            text = selectedCategory?.let {
+                "${it.emoji} ${it.name}"
+            } ?: "Choose a category",
             fontSize = 21.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(bottom = 12.dp)
@@ -259,7 +265,9 @@ private fun CategoryCard(
         colors = CardDefaults.cardColors(
             containerColor = category.color
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 3.dp
+        )
     ) {
         Column(
             modifier = Modifier
@@ -348,19 +356,35 @@ private fun LearningItemCard(
         colors = CardDefaults.cardColors(
             containerColor = item.color
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 3.dp
+        )
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 16.dp, horizontal = 8.dp),
+                .padding(vertical = 12.dp, horizontal = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
-                modifier = Modifier.size(76.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(150.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = item.emoji, fontSize = 52.sp)
+                if (item.imageRes != null) {
+                    Image(
+                        painter = painterResource(id = item.imageRes),
+                        contentDescription = item.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
+                } else {
+                    Text(
+                        text = item.emoji,
+                        fontSize = 64.sp
+                    )
+                }
             }
 
             Text(
