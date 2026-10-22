@@ -1,6 +1,7 @@
 package com.education.kidslearn
 
 import android.graphics.BitmapFactory
+import android.util.Log
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
@@ -13,6 +14,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -30,6 +32,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -43,16 +46,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -71,6 +78,8 @@ private data class LearningItem(
     val color: Color,
     val assetPath: String? = null
 )
+
+private val signatureBackground = Color(0xFFFFFBF5)
 
 private val canvasColors = listOf(
     Color(0xFFE3F2FD), // soft blue
@@ -129,26 +138,26 @@ private val animals = listOf(
 )
 
 private val birds = listOf(
-    LearningItem("Parrot", "🦜", Color(0xFFE8F5E9)),
-    LearningItem("Peacock", "🦚", Color(0xFFE3F2FD)),
-    LearningItem("Owl", "🦉", Color(0xFFFFF3E0)),
-    LearningItem("Eagle", "🦅", Color(0xFFEDE7F6)),
-    LearningItem("Duck", "🦆", Color(0xFFFFF9C4)),
-    LearningItem("Chicken", "🐔", Color(0xFFFFEBEE)),
-    LearningItem("Rooster", "🐓", Color(0xFFFFF3E0)),
-    LearningItem("Swan", "🦢", Color(0xFFE0F7FA)),
-    LearningItem("Flamingo", "🦩", Color(0xFFFCE4EC)),
-    LearningItem("Penguin", "🐧", Color(0xFFE3F2FD)),
-    LearningItem("Dove", "🕊️", Color(0xFFF5F5F5)),
-    LearningItem("Turkey", "🦃", Color(0xFFFFE0B2)),
-    LearningItem("Woodpecker", "🐦", Color(0xFFE8F5E9)),
-    LearningItem("Kingfisher", "🐦", Color(0xFFE0F7FA)),
-    LearningItem("Crow", "🐦‍⬛", Color(0xFFEDE7F6)),
-    LearningItem("Sparrow", "🐦", Color(0xFFFFF8E1)),
-    LearningItem("Pigeon", "🕊️", Color(0xFFE3F2FD)),
-    LearningItem("Hummingbird", "🐦", Color(0xFFF3E5F5)),
-    LearningItem("Ostrich", "🪶", Color(0xFFFFF3E0)),
-    LearningItem("Crane", "🐦", Color(0xFFE8F5E9))
+    LearningItem("Parrot", "🦜", Color(0xFFE8F5E9), assetPath = "birds/parrot.png"),
+    LearningItem("Peacock", "🦚", Color(0xFFE3F2FD), assetPath = "birds/peacock.png"),
+    LearningItem("Owl", "🦉", Color(0xFFFFF3E0), assetPath = "birds/owl.png"),
+    LearningItem("Eagle", "🦅", Color(0xFFEDE7F6), assetPath = "birds/eagle.png"),
+    LearningItem("Duck", "🦆", Color(0xFFFFF9C4), assetPath = "birds/duck.png"),
+    LearningItem("Chicken", "🐔", Color(0xFFFFEBEE), assetPath = "birds/chicken.png"),
+    LearningItem("Rooster", "🐓", Color(0xFFFFF3E0), assetPath = "birds/rooster.png"),
+    LearningItem("Swan", "🦢", Color(0xFFE0F7FA), assetPath = "birds/swan.png"),
+    LearningItem("Flamingo", "🦩", Color(0xFFFCE4EC), assetPath = "birds/flamingo.png"),
+    LearningItem("Penguin", "🐧", Color(0xFFE3F2FD), assetPath = "birds/penguin.png"),
+    LearningItem("Dove", "🕊️", Color(0xFFF5F5F5), assetPath = "birds/dove.png"),
+    LearningItem("Turkey", "🦃", Color(0xFFFFE0B2), assetPath = "birds/turkey.png"),
+    LearningItem("Woodpecker", "🐦", Color(0xFFE8F5E9), assetPath = "birds/woodpecker.png"),
+    LearningItem("Kingfisher", "🐦", Color(0xFFE0F7FA), assetPath = "birds/kingfisher.png"),
+    LearningItem("Crow", "🐦‍⬛", Color(0xFFEDE7F6), assetPath = "birds/crow.png"),
+    LearningItem("Sparrow", "🐦", Color(0xFFFFF8E1), assetPath = "birds/sparrow.png"),
+    LearningItem("Pigeon", "🕊️", Color(0xFFE3F2FD), assetPath = "birds/pigeon.png"),
+    LearningItem("Hummingbird", "🐦", Color(0xFFF3E5F5), assetPath = "birds/hummingbird.png"),
+    LearningItem("Ostrich", "🪶", Color(0xFFFFF3E0), assetPath = "birds/ostrich.png"),
+    LearningItem("Crane", "🐦", Color(0xFFE8F5E9), assetPath = "birds/crane.png")
 )
 
 private val categoryItems: Map<String, List<LearningItem>> = mapOf(
@@ -156,16 +165,16 @@ private val categoryItems: Map<String, List<LearningItem>> = mapOf(
     "Birds" to birds,
 
     "Vehicles" to listOf(
-        LearningItem("Car", "🚗", Color(0xFFE3F2FD)),
-        LearningItem("Bus", "🚌", Color(0xFFFFF9C4)),
-        LearningItem("Train", "🚆", Color(0xFFE8F5E9)),
-        LearningItem("Airplane", "✈️", Color(0xFFE0F7FA)),
-        LearningItem("Bicycle", "🚲", Color(0xFFFCE4EC)),
-        LearningItem("Motorcycle", "🏍️", Color(0xFFFFE0B2)),
-        LearningItem("Truck", "🚚", Color(0xFFEDE7F6)),
-        LearningItem("Boat", "⛵", Color(0xFFE3F2FD)),
-        LearningItem("Helicopter", "🚁", Color(0xFFFFF3E0)),
-        LearningItem("Tractor", "🚜", Color(0xFFE8F5E9))
+        LearningItem("Car", "🚗", Color(0xFFE3F2FD), assetPath = "vehicles/car.png"),
+        LearningItem("Bus", "🚌", Color(0xFFFFF9C4), assetPath = "vehicles/bus.png"),
+        LearningItem("Train", "🚆", Color(0xFFE8F5E9), assetPath = "vehicles/train.png"),
+        LearningItem("Airplane", "✈️", Color(0xFFE0F7FA), assetPath = "vehicles/airplane.png"),
+        LearningItem("Bicycle", "🚲", Color(0xFFFCE4EC), assetPath = "vehicles/bicycle.png"),
+        LearningItem("Motorcycle", "🏍️", Color(0xFFFFE0B2), assetPath = "vehicles/motorcycle.png"),
+        LearningItem("Truck", "🚚", Color(0xFFEDE7F6), assetPath = "vehicles/truck.png"),
+        LearningItem("Boat", "⛵", Color(0xFFE3F2FD), assetPath = "vehicles/boat.png"),
+        LearningItem("Helicopter", "🚁", Color(0xFFFFF3E0), assetPath = "vehicles/helicopter.png"),
+        LearningItem("Tractor", "🚜", Color(0xFFE8F5E9), assetPath = "vehicles/tractor.png")
     ),
 
     "Fruits" to listOf(
@@ -271,7 +280,12 @@ class MainActivity : ComponentActivity() {
                     val pendingAction = pendingSpeechAction
                     pendingSpeechAction = null
                     pendingAction?.invoke()
+                } else {
+                    // Do not retain requests if the selected speech language is unavailable.
+                    pendingSpeechAction = null
                 }
+            } else {
+                pendingSpeechAction = null
             }
         }
 
@@ -279,7 +293,7 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = Color(0xFFFFFBF5)
+                    color = signatureBackground
                 ) {
                     KidsLearnApp(
                         onSpeak = { speakWord(it) },
@@ -297,6 +311,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun speakWord(word: String) {
+        if (word.isBlank()) return
+
         val tts = textToSpeech
 
         if (!speechReady || tts == null) {
@@ -316,6 +332,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun spellWord(word: String) {
+        if (word.isBlank()) return
+
         val tts = textToSpeech
 
         if (!speechReady || tts == null) {
@@ -347,11 +365,7 @@ class MainActivity : ComponentActivity() {
         letters.forEachIndexed { index, letter ->
             tts.speak(
                 letter.toString(),
-                if (index == 0) {
-                    TextToSpeech.QUEUE_FLUSH
-                } else {
-                    TextToSpeech.QUEUE_ADD
-                },
+                if (index == 0) {TextToSpeech.QUEUE_FLUSH} else {TextToSpeech.QUEUE_ADD},
                 null,
                 "letter_${index}_$letter"
             )
@@ -395,20 +409,21 @@ private fun KidsLearnApp(
     onSpell: (String) -> Unit,
     onStopSpeech: () -> Unit
 ) {
-    var selectedCategory by remember {
-        mutableStateOf<LearningCategory?>(null)
+    var selectedCategoryName by rememberSaveable {
+        mutableStateOf<String?>(null)
     }
+    val selectedCategory = categories.firstOrNull { it.name == selectedCategoryName }
 
     BackHandler(enabled = selectedCategory != null) {
         onStopSpeech()
-        selectedCategory = null
+        selectedCategoryName = null
     }
 
     if (selectedCategory == null) {
         HomeScreen(
             onCategorySelected = { category ->
                 onStopSpeech()
-                selectedCategory = category
+                selectedCategoryName = category.name
             }
         )
     } else {
@@ -419,7 +434,7 @@ private fun KidsLearnApp(
             items = categoryItems[category.name].orEmpty(),
             onBack = {
                 onStopSpeech()
-                selectedCategory = null
+                selectedCategoryName = null
             },
             onSpeak = onSpeak,
             onSpell = onSpell
@@ -443,7 +458,7 @@ private fun HomeScreen(
                 }
             )
         },
-        containerColor = Color(0xFFFFFBF5)
+        containerColor = signatureBackground
     ) { padding ->
         Column(
             modifier = Modifier
@@ -523,11 +538,19 @@ private fun LearningScreen(
     onSpeak: (String) -> Unit,
     onSpell: (String) -> Unit
 ) {
-    val shuffledItems = remember(category.name) {
-        items.shuffled()
+    // Save the shuffled item order across configuration changes such as rotation.
+    // Store item names because rememberSaveable can reliably restore a list of strings.
+    val savedItemOrder = rememberSaveable(category.name) {
+        mutableStateOf(items.shuffled().map { it.name })
+    }
+    val shuffledItems = remember(category.name, savedItemOrder.value, items) {
+        savedItemOrder.value.mapNotNull { savedName ->
+            items.firstOrNull { it.name == savedName }
+        }
     }
 
-    var currentIndex by remember(category.name) {
+    // Preserve the selected position when the activity is recreated by rotation.
+    var currentIndex by rememberSaveable(category.name) {
         mutableStateOf(0)
     }
 
@@ -538,6 +561,8 @@ private fun LearningScreen(
     val canvasScale = remember { Animatable(1f) }
     val animationScope = rememberCoroutineScope()
     val canvasInteractionSource = remember { MutableInteractionSource() }
+    val bitmapCache = remember { mutableMapOf<String, ImageBitmap>() }
+    val swipeThresholdPx = with(LocalDensity.current) { 60.dp.toPx() }
 
     val item = shuffledItems.getOrNull(currentIndex)
     var canvasColor by remember(category.name) {
@@ -545,6 +570,7 @@ private fun LearningScreen(
     }
 
     LaunchedEffect(category.name, item?.name) {
+        canvasScale.snapTo(1f)
         item?.let {
             canvasColor = nextCanvasColor(canvasColor)
             onSpeak(it.name)
@@ -561,161 +587,231 @@ private fun LearningScreen(
                     )
                 },
                 navigationIcon = {
-                    Text(
-                        text = "‹",
-                        fontSize = 38.sp,
-                        color = Color(0xFF37474F),
-                        modifier = Modifier
-                            .clickable { onBack() }
-                            .padding(horizontal = 16.dp)
-                    )
+                    IconButton(onClick = onBack) {
+                        Text(
+                            text = "‹",
+                            fontSize = 38.sp,
+                            color = Color(0xFF37474F)
+                        )
+                    }
                 }
             )
         },
         // Keep the learning screen body consistent with the home screen signature background.
         // Only the rounded image canvas changes color randomly.
-        containerColor = Color(0xFFFFFBF5)
+        containerColor = signatureBackground
     ) { padding ->
         if (item != null) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Swipe left or right to explore",
-                    fontSize = 14.sp,
-                    color = Color(0xFF546E7A),
-                    modifier = Modifier.padding(
-                        top = 4.dp,
-                        bottom = 8.dp
-                    )
-                )
+            val configuration = LocalConfiguration.current
+            val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
 
-                Card(
+            if (isLandscape) {
+                Row(
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    shape = RoundedCornerShape(28.dp),
-                    border = BorderStroke(1.dp, Color(0xFFE0D8CC)),
-                    colors = CardDefaults.cardColors(
-                        containerColor = canvasColor
-                    ),
-                    elevation = CardDefaults.cardElevation(
-                        defaultElevation = 5.dp
-                    )
+                        .fillMaxSize()
+                        .padding(padding)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
+                    Card(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .clickable(
-                                interactionSource = canvasInteractionSource,
-                                indication = null
-                            ) {
-                                animationScope.launch {
-                                    canvasScale.animateTo(
-                                        targetValue = 1.045f,
-                                        animationSpec = tween(durationMillis = 100)
-                                    )
-                                    canvasScale.animateTo(
-                                        targetValue = 1f,
-                                        animationSpec = tween(durationMillis = 180)
-                                    )
-                                }
-                                onSpeak(item.name)
-                            }
-                            .pointerInput(category.name, currentIndex) {
-                                detectHorizontalDragGestures(
-                                    onHorizontalDrag = { _, dragAmount ->
-                                        totalDrag += dragAmount
-                                    },
-                                    onDragEnd = {
-                                        if (totalDrag < -60f) {
-                                            currentIndex =
-                                                (currentIndex + 1) %
-                                                        shuffledItems.size
-                                        } else if (totalDrag > 60f) {
-                                            currentIndex =
-                                                if (currentIndex == 0) {
-                                                    shuffledItems.lastIndex
-                                                } else {
-                                                    currentIndex - 1
-                                                }
-                                        }
-
-                                        totalDrag = 0f
-                                    },
-                                    onDragCancel = {
-                                        totalDrag = 0f
-                                    }
-                                )
-                            },
-                        contentAlignment = Alignment.Center
+                            .weight(1f)
+                            .fillMaxSize(),
+                        shape = RoundedCornerShape(28.dp),
+                        border = BorderStroke(1.dp, Color(0xFFE0D8CC)),
+                        colors = CardDefaults.cardColors(containerColor = canvasColor),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 5.dp)
                     ) {
-                        Column(
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
+                                .fillMaxSize()
+                                .clickable(
+                                    interactionSource = canvasInteractionSource,
+                                    indication = null
+                                ) {
+                                    animationScope.launch {
+                                        canvasScale.animateTo(1.045f, tween(100))
+                                        canvasScale.animateTo(1f, tween(180))
+                                    }
+                                    onSpeak(item.name)
+                                }
+                                .pointerInput(category.name, currentIndex, swipeThresholdPx) {
+                                    detectHorizontalDragGestures(
+                                        onHorizontalDrag = { _, dragAmount -> totalDrag += dragAmount },
+                                        onDragEnd = {
+                                            if (totalDrag < -swipeThresholdPx) {
+                                                currentIndex = (currentIndex + 1) % shuffledItems.size
+                                            } else if (totalDrag > swipeThresholdPx) {
+                                                currentIndex = if (currentIndex == 0) shuffledItems.lastIndex else currentIndex - 1
+                                            }
+                                            totalDrag = 0f
+                                        },
+                                        onDragCancel = { totalDrag = 0f }
+                                    )
+                                },
+                            contentAlignment = Alignment.Center
                         ) {
-                            ItemPicture(
-                                item = item,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f),
-                                animationScale = canvasScale.value
-                            )
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Text(
-                                text = item.name,
-                                fontSize = 32.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF263238),
-                                modifier = Modifier.padding(8.dp)
-                            )
+                            Column(
+                                modifier = Modifier.fillMaxSize().padding(8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                ItemPicture(
+                                    item = item,
+                                    bitmapCache = bitmapCache,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f),
+                                    animationScale = canvasScale.value
+                                )
+                                Text(
+                                    text = item.name,
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF263238),
+                                    modifier = Modifier.padding(4.dp)
+                                )
+                            }
                         }
                     }
-                }
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Button(
-                        onClick = {
-                            onSpell(item.name)
-                        },
+                    Column(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        shape = RoundedCornerShape(18.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF4CAF50)
-                        )
+                            .weight(0.42f)
+                            .fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = "Spell ${item.name}",
-                            fontSize = 19.sp,
-                            fontWeight = FontWeight.Bold
+                            text = "Swipe left or right to explore",
+                            fontSize = 14.sp,
+                            color = Color(0xFF546E7A),
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+                        Button(
+                            onClick = { onSpell(item.name) },
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            shape = RoundedCornerShape(18.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                        ) {
+                            Text(
+                                text = "Spell ${item.name}",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "${currentIndex + 1} of ${shuffledItems.size}",
+                            fontSize = 14.sp,
+                            color = Color(0xFF546E7A)
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
                     Text(
-                        text = "${currentIndex + 1} of ${shuffledItems.size}",
+                        text = "Swipe left or right to explore",
                         fontSize = 14.sp,
-                        color = Color(0xFF546E7A)
+                        color = Color(0xFF546E7A),
+                        modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
                     )
+
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        shape = RoundedCornerShape(28.dp),
+                        border = BorderStroke(1.dp, Color(0xFFE0D8CC)),
+                        colors = CardDefaults.cardColors(containerColor = canvasColor),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 5.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clickable(
+                                    interactionSource = canvasInteractionSource,
+                                    indication = null
+                                ) {
+                                    animationScope.launch {
+                                        canvasScale.animateTo(1.045f, tween(100))
+                                        canvasScale.animateTo(1f, tween(180))
+                                    }
+                                    onSpeak(item.name)
+                                }
+                                .pointerInput(category.name, currentIndex, swipeThresholdPx) {
+                                    detectHorizontalDragGestures(
+                                        onHorizontalDrag = { _, dragAmount -> totalDrag += dragAmount },
+                                        onDragEnd = {
+                                            if (totalDrag < -swipeThresholdPx) {
+                                                currentIndex = (currentIndex + 1) % shuffledItems.size
+                                            } else if (totalDrag > swipeThresholdPx) {
+                                                currentIndex = if (currentIndex == 0) shuffledItems.lastIndex else currentIndex - 1
+                                            }
+                                            totalDrag = 0f
+                                        },
+                                        onDragCancel = { totalDrag = 0f }
+                                    )
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                ItemPicture(
+                                    item = item,
+                                    bitmapCache = bitmapCache,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f),
+                                    animationScale = canvasScale.value
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = item.name,
+                                    fontSize = 32.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF263238),
+                                    modifier = Modifier.padding(8.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Button(
+                            onClick = { onSpell(item.name) },
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            shape = RoundedCornerShape(18.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                        ) {
+                            Text(
+                                text = "Spell ${item.name}",
+                                fontSize = 19.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "${currentIndex + 1} of ${shuffledItems.size}",
+                            fontSize = 14.sp,
+                            color = Color(0xFF546E7A)
+                        )
+                    }
                 }
             }
         }
@@ -725,6 +821,7 @@ private fun LearningScreen(
 @Composable
 private fun ItemPicture(
     item: LearningItem,
+    bitmapCache: MutableMap<String, ImageBitmap>,
     modifier: Modifier = Modifier,
     animationScale: Float = 1f
 ) {
@@ -737,11 +834,15 @@ private fun ItemPicture(
 
     val bitmap = remember(item.assetPath) {
         item.assetPath?.let { path ->
-            runCatching {
+            bitmapCache[path] ?: runCatching {
                 context.assets.open(path).use { stream ->
                     BitmapFactory.decodeStream(stream)?.asImageBitmap()
                 }
-            }.getOrNull()
+            }.onFailure { error ->
+                Log.w("KidsLearn", "Unable to load image asset: $path", error)
+            }.getOrNull()?.also { decodedBitmap ->
+                bitmapCache[path] = decodedBitmap
+            }
         }
     }
 
