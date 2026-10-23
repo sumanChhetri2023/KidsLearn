@@ -89,7 +89,10 @@ fun LearningScreen(
     val bitmapCache = remember { mutableMapOf<String, ImageBitmap>() }
     val swipeThresholdPx = with(LocalDensity.current) { 60.dp.toPx() }
 
-    val item = shuffledItems.getOrNull(currentIndex)
+    // Quiz sessions use exactly 20 distinct items when at least 20 are available.
+    // Other learning categories continue to use their full shuffled item list.
+    val sessionItems = if (category.name == "Quiz") shuffledItems.take(20) else shuffledItems
+    val item = sessionItems.getOrNull(currentIndex)
     var canvasColor by remember(category.name) {
         mutableStateOf(canvasColors.random())
     }
@@ -97,25 +100,42 @@ fun LearningScreen(
     var quizMode by rememberSaveable(category.name) { mutableStateOf(category.name == "Quiz") }
     var quizFeedback by rememberSaveable(category.name) { mutableStateOf<String?>(null) }
     var quizAnsweredCorrectly by rememberSaveable(category.name) { mutableStateOf(false) }
+    var quizFirstAttemptCorrect by rememberSaveable(category.name) { mutableStateOf(true) }
+    var quizScore by rememberSaveable(category.name) { mutableStateOf(0) }
+    var quizComplete by rememberSaveable(category.name) { mutableStateOf(false) }
+    // Persist which questions have already received their first answer. This is the
+    // scoring source of truth, even if rotation recreates the UI or clears feedback.
+    var attemptedQuestionIndices by rememberSaveable(category.name) {
+        mutableStateOf(emptyList<Int>())
+    }
 
     val quizOptions = remember(category.name, item?.name, items) {
         if (item == null || items.isEmpty()) emptyList()
-        else (items.filter { it.name != item.name }.shuffled().take(2) + item).shuffled()
+        else (items.filter { it.name != item.name }.shuffled().take(3) + item).shuffled()
     }
 
     LaunchedEffect(Unit) {
         onSpellingProgress { index -> spellingIndex = index }
     }
 
+    // Remember the last quiz prompt across orientation changes.
+    var lastSpokenQuizItem by rememberSaveable(category.name) {
+        mutableStateOf<String?>(null)
+    }
+
     LaunchedEffect(category.name, item?.name) {
         canvasScale.snapTo(1f)
         spellingIndex = -1
-        quizFeedback = null
-        quizAnsweredCorrectly = false
+        // Do not reset quiz answer/feedback state in this effect.
+        // It can rerun after Activity recreation; only explicit navigation
+        // (Next question / Play again) should reset the quiz answer state.
         item?.let {
             canvasColor = nextCanvasColor(canvasColor)
             if (quizMode) {
-                onSpeak("Find the ${it.name}")
+                if (lastSpokenQuizItem != it.name) {
+                    lastSpokenQuizItem = it.name
+                    onSpeak("Find the ${it.name}")
+                }
             } else {
                 onSpeak(it.name)
             }
@@ -153,23 +173,55 @@ fun LearningScreen(
 
             if (quizMode) {
                 QuizContent(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    onHome = onBack,
                     item = item,
                     options = quizOptions,
                     bitmapCache = bitmapCache,
                     isLandscape = isLandscape,
                     feedback = quizFeedback,
                     answeredCorrectly = quizAnsweredCorrectly,
+                    questionNumber = currentIndex + 1,
+                    totalQuestions = sessionItems.size,
+                    score = quizScore,
+                    quizComplete = quizComplete,
                     onReplay = { onSpeak("Find the ${item.name}") },
                     onChoose = { selected ->
-                        val correct = selected.name == item.name
-                        quizAnsweredCorrectly = correct
-                        quizFeedback = if (correct) "Correct! Great job!" else "Not quite. Try again!"
-                        onSpeak(if (correct) "Correct! Great job!" else "Try again")
+                        // Once correct, ignore further taps for this question.
+                        if (!quizAnsweredCorrectly) {
+                            val correct = selected.name == item.name
+                            val hasAnsweredThisQuestion = currentIndex in attemptedQuestionIndices
+
+                            // Only the first attempt can earn a point.
+                            if (!hasAnsweredThisQuestion) {
+                                attemptedQuestionIndices = attemptedQuestionIndices + currentIndex
+                                if (correct) quizScore += 1
+                                quizFirstAttemptCorrect = correct
+                            }
+
+                            quizAnsweredCorrectly = correct
+                            quizFeedback = if (correct) "Correct! Great job!" else "Not quite. Try again!"
+                            onSpeak(if (correct) "Correct! Great job!" else "Try again")
+                        }
                     },
                     onNext = {
-                        currentIndex = (currentIndex + 1) % shuffledItems.size
+                        if (currentIndex + 1 >= sessionItems.size) {
+                            quizComplete = true
+                        } else {
+                            currentIndex += 1
+                            quizFeedback = null
+                            quizAnsweredCorrectly = false
+                            quizFirstAttemptCorrect = true
+                        }
+                    },
+                    onRestart = {
+                        currentIndex = 0
+                        quizScore = 0
                         quizFeedback = null
                         quizAnsweredCorrectly = false
+                        quizFirstAttemptCorrect = true
+                        attemptedQuestionIndices = emptyList()
+                        quizComplete = false
                     }
                 )
             } else if (isLandscape) {

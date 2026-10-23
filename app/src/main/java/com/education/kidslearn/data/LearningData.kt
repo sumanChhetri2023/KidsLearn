@@ -1,7 +1,6 @@
 package com.education.kidslearn.data
 
 import androidx.compose.ui.graphics.Color
-import java.util.Locale
 
 data class LearningCategory(
     val name: String,

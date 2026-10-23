@@ -132,26 +132,40 @@ private fun KidsLearnApp(
 
 @Composable
 fun QuizContent(
+    modifier: Modifier = Modifier,
+    onHome: () -> Unit,
     item: LearningItem,
     options: List<LearningItem>,
     bitmapCache: MutableMap<String, ImageBitmap>,
     isLandscape: Boolean,
     feedback: String?,
     answeredCorrectly: Boolean,
+    questionNumber: Int,
+    totalQuestions: Int,
+    score: Int,
+    quizComplete: Boolean,
     onReplay: () -> Unit,
     onChoose: (LearningItem) -> Unit,
-    onNext: () -> Unit
+    onNext: () -> Unit,
+    onRestart: () -> Unit
 ) {
     QuizScreen(
+        modifier = modifier,
+        onHome = onHome,
         item = item,
         options = options,
         bitmapCache = bitmapCache,
         isLandscape = isLandscape,
         feedback = feedback,
         answeredCorrectly = answeredCorrectly,
+        questionNumber = questionNumber,
+        totalQuestions = totalQuestions,
+        score = score,
+        quizComplete = quizComplete,
         onReplay = onReplay,
         onChoose = onChoose,
-        onNext = onNext
+        onNext = onNext,
+        onRestart = onRestart
     )
 }
 
