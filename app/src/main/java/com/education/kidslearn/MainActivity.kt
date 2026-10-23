@@ -4,17 +4,21 @@ import android.graphics.BitmapFactory
 import android.util.Log
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -53,6 +57,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.input.pointer.pointerInput
@@ -111,7 +117,8 @@ private val categories = listOf(
     LearningCategory("Insects", "🦋", Color(0xFFF3E5F5)),
     LearningCategory("Food", "🍕", Color(0xFFFFE0B2)),
     LearningCategory("Numbers", "🔢", Color(0xFFE0F7FA)),
-    LearningCategory("Shapes", "⭐", Color(0xFFFCE4EC))
+    LearningCategory("Shapes", "⭐", Color(0xFFFCE4EC)),
+    LearningCategory("Quiz", "🎯", Color(0xFFE0F2F1))
 )
 
 private val animals = listOf(
@@ -163,6 +170,18 @@ private val birds = listOf(
 private val categoryItems: Map<String, List<LearningItem>> = mapOf(
     "Animals" to animals,
     "Birds" to birds,
+    "Quiz" to (animals + birds + listOf(
+        LearningItem("Car", "🚗", Color(0xFFE3F2FD), "vehicles/car.png"),
+        LearningItem("Bus", "🚌", Color(0xFFFFF9C4), "vehicles/bus.png"),
+        LearningItem("Train", "🚆", Color(0xFFE8F5E9), "vehicles/train.png"),
+        LearningItem("Airplane", "✈️", Color(0xFFE0F7FA), "vehicles/airplane.png"),
+        LearningItem("Bicycle", "🚲", Color(0xFFFCE4EC), "vehicles/bicycle.png"),
+        LearningItem("Motorcycle", "🏍️", Color(0xFFFFE0B2), "vehicles/motorcycle.png"),
+        LearningItem("Truck", "🚚", Color(0xFFEDE7F6), "vehicles/truck.png"),
+        LearningItem("Boat", "⛵", Color(0xFFE0F7FA), "vehicles/boat.png"),
+        LearningItem("Helicopter", "🚁", Color(0xFFFFF3E0), "vehicles/helicopter.png"),
+        LearningItem("Tractor", "🚜", Color(0xFFE8F5E9), "vehicles/tractor.png")
+    )),
 
     "Vehicles" to listOf(
         LearningItem("Car", "🚗", Color(0xFFE3F2FD), assetPath = "vehicles/car.png"),
@@ -254,11 +273,199 @@ private val categoryItems: Map<String, List<LearningItem>> = mapOf(
     )
 )
 
+
+private fun lettersForSpelling(word: String): List<Char> =
+    word.uppercase(Locale.US).filter { it in 'A'..'Z' }.toList()
+
+@Composable
+private fun SpellingLetters(
+    word: String,
+    highlightedIndex: Int,
+    modifier: Modifier = Modifier
+) {
+    val letters = lettersForSpelling(word)
+    if (letters.isEmpty()) return
+
+    // Short words keep natural-sized letter cells. Long words compress each cell
+    // only as much as needed to fit on one line within the canvas width.
+    BoxWithConstraints(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        val preferredCellWidth = 32.dp
+        val letterGap = 2.dp
+        val availableForCells = (maxWidth - letterGap * (letters.size - 1)).coerceAtLeast(1.dp)
+        val cellWidth = minOf(preferredCellWidth, availableForCells / letters.size)
+        val rowWidth = cellWidth * letters.size + letterGap * (letters.size - 1)
+
+        Row(
+            modifier = Modifier.width(rowWidth),
+            horizontalArrangement = Arrangement.spacedBy(letterGap),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            letters.forEachIndexed { index, letter ->
+                Surface(
+                    modifier = Modifier.width(cellWidth),
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (index == highlightedIndex) Color(0xFFFFD54F) else Color.White.copy(alpha = 0.75f),
+                    border = BorderStroke(
+                        width = if (index == highlightedIndex) 2.dp else 1.dp,
+                        color = if (index == highlightedIndex) Color(0xFFFF8F00) else Color(0xFFD7CCC8)
+                    )
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = letter.toString(),
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF263238),
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EducationalVisual(
+    item: LearningItem,
+    modifier: Modifier = Modifier
+) {
+    if (item.name.all { it.isDigit() }) {
+        val number = item.name.toIntOrNull() ?: 0
+        Column(
+            modifier = modifier.padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = item.name,
+                fontSize = 76.sp,
+                lineHeight = 80.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFF263238)
+            )
+            val dotCount = number.coerceIn(0, 20)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                (0 until dotCount step 5).forEach { start ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        (start until minOf(start + 5, dotCount)).forEach { index ->
+                            Box(
+                                modifier = Modifier
+                                    .width(13.dp)
+                                    .height(13.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Surface(
+                                    modifier = Modifier.fillMaxSize(),
+                                    shape = RoundedCornerShape(50),
+                                    color = listOf(
+                                        Color(0xFFEF5350), Color(0xFF42A5F5),
+                                        Color(0xFF66BB6A), Color(0xFFFFCA28),
+                                        Color(0xFFAB47BC)
+                                    )[index % 5]
+                                ) {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } else if (item.name in setOf("Circle", "Square", "Triangle", "Rectangle", "Star", "Heart", "Diamond", "Oval")) {
+        Canvas(modifier = modifier.padding(24.dp)) {
+            val shapeColor = Color(0xFF42A5F5)
+            val w = size.width
+            val h = size.height
+            val side = minOf(w, h) * 0.68f
+            val left = (w - side) / 2f
+            val top = (h - side) / 2f
+            when (item.name) {
+                "Circle" -> drawCircle(shapeColor, radius = side / 2f)
+                "Square" -> drawRect(shapeColor, topLeft = Offset(left, top), size = androidx.compose.ui.geometry.Size(side, side))
+                "Rectangle" -> {
+                    val rectW = w * 0.82f
+                    val rectH = h * 0.48f
+                    drawRect(
+                        shapeColor,
+                        topLeft = Offset((w - rectW) / 2f, (h - rectH) / 2f),
+                        size = androidx.compose.ui.geometry.Size(rectW, rectH)
+                    )
+                }
+                "Triangle" -> {
+                    val path = Path().apply {
+                        moveTo(w / 2f, h * 0.12f)
+                        lineTo(w * 0.88f, h * 0.84f)
+                        lineTo(w * 0.12f, h * 0.84f)
+                        close()
+                    }
+                    drawPath(path, Color(0xFFEF5350))
+                }
+                "Diamond" -> {
+                    val path = Path().apply {
+                        moveTo(w / 2f, h * 0.08f)
+                        lineTo(w * 0.9f, h / 2f)
+                        lineTo(w / 2f, h * 0.92f)
+                        lineTo(w * 0.1f, h / 2f)
+                        close()
+                    }
+                    drawPath(path, Color(0xFFAB47BC))
+                }
+                "Oval" -> drawOval(
+                    color = Color(0xFFFFA726),
+                    topLeft = Offset(w * 0.12f, h * 0.28f),
+                    size = androidx.compose.ui.geometry.Size(w * 0.76f, h * 0.44f)
+                )
+                "Star" -> {
+                    val path = Path()
+                    val cx = w / 2f
+                    val cy = h / 2f
+                    val outer = minOf(w, h) * 0.44f
+                    val inner = outer * 0.43f
+                    for (i in 0 until 10) {
+                        val angle = (-90.0 + i * 36.0) * Math.PI / 180.0
+                        val radius = if (i % 2 == 0) outer else inner
+                        val x = cx + kotlin.math.cos(angle).toFloat() * radius
+                        val y = cy + kotlin.math.sin(angle).toFloat() * radius
+                        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                    }
+                    path.close()
+                    drawPath(path, Color(0xFFFFCA28))
+                }
+                "Heart" -> {
+                    val path = Path().apply {
+                        moveTo(w * 0.5f, h * 0.82f)
+                        cubicTo(w * 0.38f, h * 0.7f, w * 0.1f, h * 0.5f, w * 0.14f, h * 0.3f)
+                        cubicTo(w * 0.18f, h * 0.08f, w * 0.42f, h * 0.12f, w * 0.5f, h * 0.3f)
+                        cubicTo(w * 0.58f, h * 0.12f, w * 0.82f, h * 0.08f, w * 0.86f, h * 0.3f)
+                        cubicTo(w * 0.9f, h * 0.5f, w * 0.62f, h * 0.7f, w * 0.5f, h * 0.82f)
+                        close()
+                    }
+                    drawPath(path, Color(0xFFEF5350))
+                }
+            }
+        }
+    } else {
+        Box(modifier = modifier, contentAlignment = Alignment.Center) {
+            Text(text = item.emoji, fontSize = 112.sp)
+        }
+    }
+}
+
 class MainActivity : ComponentActivity() {
 
     private var textToSpeech: TextToSpeech? = null
     private var speechReady = false
     private var pendingSpeechAction: (() -> Unit)? = null
+    private var spellingProgressCallback: ((Int) -> Unit)? = null
+    private var spellingSession = 0L
     private val speechLocale = Locale.US
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -276,6 +483,25 @@ class MainActivity : ComponentActivity() {
 
                 if (speechReady) {
                     tts.setSpeechRate(0.85f)
+                    tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                        override fun onStart(utteranceId: String?) {
+                            val parts = utteranceId?.split(":") ?: return
+                            if (parts.size == 3 && parts[0] == "spell" && parts[1].toLongOrNull() == spellingSession) {
+                                val index = parts[2].toIntOrNull() ?: return
+                                runOnUiThread { spellingProgressCallback?.invoke(index) }
+                            }
+                        }
+                        override fun onDone(utteranceId: String?) {
+                            val parts = utteranceId?.split(":") ?: return
+                            if (parts.size >= 2 && parts[0] == "spellDone" && parts[1].toLongOrNull() == spellingSession) {
+                                runOnUiThread { spellingProgressCallback?.invoke(-1) }
+                            }
+                        }
+                        @Deprecated("Deprecated in Java")
+                        override fun onError(utteranceId: String?) {
+                            runOnUiThread { spellingProgressCallback?.invoke(-1) }
+                        }
+                    })
 
                     val pendingAction = pendingSpeechAction
                     pendingSpeechAction = null
@@ -298,7 +524,8 @@ class MainActivity : ComponentActivity() {
                     KidsLearnApp(
                         onSpeak = { speakWord(it) },
                         onSpell = { spellWord(it) },
-                        onStopSpeech = { stopSpeech() }
+                        onStopSpeech = { stopSpeech() },
+                        onSpellingProgress = { spellingProgressCallback = it }
                     )
                 }
             }
@@ -321,6 +548,8 @@ class MainActivity : ComponentActivity() {
         }
 
         pendingSpeechAction = null
+        spellingSession += 1
+        spellingProgressCallback?.invoke(-1)
         tts.stop()
 
         tts.speak(
@@ -343,6 +572,9 @@ class MainActivity : ComponentActivity() {
 
         pendingSpeechAction = null
         tts.stop()
+        spellingSession += 1
+        val thisSession = spellingSession
+        spellingProgressCallback?.invoke(-1)
 
         if (word.all { it.isDigit() }) {
             tts.speak(
@@ -367,7 +599,7 @@ class MainActivity : ComponentActivity() {
                 letter.toString(),
                 if (index == 0) {TextToSpeech.QUEUE_FLUSH} else {TextToSpeech.QUEUE_ADD},
                 null,
-                "letter_${index}_$letter"
+                "spell:$thisSession:$index"
             )
 
             if (index < letters.lastIndex) {
@@ -383,7 +615,7 @@ class MainActivity : ComponentActivity() {
             word,
             TextToSpeech.QUEUE_ADD,
             null,
-            "complete_word_${System.nanoTime()}"
+            "spellDone:$thisSession"
         )
     }
 
@@ -392,6 +624,8 @@ class MainActivity : ComponentActivity() {
         pendingSpeechAction = null
 
         // Stop the current utterance and clear the queued letters and word.
+        spellingSession += 1
+        spellingProgressCallback?.invoke(-1)
         textToSpeech?.stop()
     }
 
@@ -399,6 +633,7 @@ class MainActivity : ComponentActivity() {
         stopSpeech()
         textToSpeech?.shutdown()
         textToSpeech = null
+        spellingProgressCallback = null
         super.onDestroy()
     }
 }
@@ -407,7 +642,8 @@ class MainActivity : ComponentActivity() {
 private fun KidsLearnApp(
     onSpeak: (String) -> Unit,
     onSpell: (String) -> Unit,
-    onStopSpeech: () -> Unit
+    onStopSpeech: () -> Unit,
+    onSpellingProgress: (((Int) -> Unit)) -> Unit
 ) {
     var selectedCategoryName by rememberSaveable {
         mutableStateOf<String?>(null)
@@ -437,7 +673,8 @@ private fun KidsLearnApp(
                 selectedCategoryName = null
             },
             onSpeak = onSpeak,
-            onSpell = onSpell
+            onSpell = onSpell,
+            onSpellingProgress = onSpellingProgress
         )
     }
 }
@@ -536,7 +773,8 @@ private fun LearningScreen(
     items: List<LearningItem>,
     onBack: () -> Unit,
     onSpeak: (String) -> Unit,
-    onSpell: (String) -> Unit
+    onSpell: (String) -> Unit,
+    onSpellingProgress: (((Int) -> Unit)) -> Unit
 ) {
     // Save the shuffled item order across configuration changes such as rotation.
     // Store item names because rememberSaveable can reliably restore a list of strings.
@@ -568,12 +806,32 @@ private fun LearningScreen(
     var canvasColor by remember(category.name) {
         mutableStateOf(canvasColors.random())
     }
+    var spellingIndex by remember { mutableStateOf(-1) }
+    var quizMode by rememberSaveable(category.name) { mutableStateOf(category.name == "Quiz") }
+    var quizFeedback by rememberSaveable(category.name) { mutableStateOf<String?>(null) }
+    var quizAnsweredCorrectly by rememberSaveable(category.name) { mutableStateOf(false) }
+
+    val quizOptions = remember(category.name, item?.name, items) {
+        if (item == null || items.isEmpty()) emptyList()
+        else (items.filter { it.name != item.name }.shuffled().take(2) + item).shuffled()
+    }
+
+    LaunchedEffect(Unit) {
+        onSpellingProgress { index -> spellingIndex = index }
+    }
 
     LaunchedEffect(category.name, item?.name) {
         canvasScale.snapTo(1f)
+        spellingIndex = -1
+        quizFeedback = null
+        quizAnsweredCorrectly = false
         item?.let {
             canvasColor = nextCanvasColor(canvasColor)
-            onSpeak(it.name)
+            if (quizMode) {
+                onSpeak("Find the ${it.name}")
+            } else {
+                onSpeak(it.name)
+            }
         }
     }
 
@@ -594,7 +852,8 @@ private fun LearningScreen(
                             color = Color(0xFF37474F)
                         )
                     }
-                }
+                },
+                actions = {}
             )
         },
         // Keep the learning screen body consistent with the home screen signature background.
@@ -605,7 +864,28 @@ private fun LearningScreen(
             val configuration = LocalConfiguration.current
             val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
 
-            if (isLandscape) {
+            if (quizMode) {
+                QuizContent(
+                    item = item,
+                    options = quizOptions,
+                    bitmapCache = bitmapCache,
+                    isLandscape = isLandscape,
+                    feedback = quizFeedback,
+                    answeredCorrectly = quizAnsweredCorrectly,
+                    onReplay = { onSpeak("Find the ${item.name}") },
+                    onChoose = { selected ->
+                        val correct = selected.name == item.name
+                        quizAnsweredCorrectly = correct
+                        quizFeedback = if (correct) "Correct! Great job!" else "Not quite. Try again!"
+                        onSpeak(if (correct) "Correct! Great job!" else "Try again")
+                    },
+                    onNext = {
+                        currentIndex = (currentIndex + 1) % shuffledItems.size
+                        quizFeedback = null
+                        quizAnsweredCorrectly = false
+                    }
+                )
+            } else if (isLandscape) {
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
@@ -672,6 +952,13 @@ private fun LearningScreen(
                                     color = Color(0xFF263238),
                                     modifier = Modifier.padding(4.dp)
                                 )
+                                if (spellingIndex >= 0) {
+                                    SpellingLetters(
+                                        word = item.name,
+                                        highlightedIndex = spellingIndex,
+                                        modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -690,7 +977,10 @@ private fun LearningScreen(
                             modifier = Modifier.padding(bottom = 12.dp)
                         )
                         Button(
-                            onClick = { onSpell(item.name) },
+                            onClick = {
+                                spellingIndex = -1
+                                onSpell(item.name)
+                            },
                             modifier = Modifier.fillMaxWidth().height(56.dp),
                             shape = RoundedCornerShape(18.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
@@ -785,6 +1075,13 @@ private fun LearningScreen(
                                     color = Color(0xFF263238),
                                     modifier = Modifier.padding(8.dp)
                                 )
+                                if (spellingIndex >= 0) {
+                                    SpellingLetters(
+                                        word = item.name,
+                                        highlightedIndex = spellingIndex,
+                                        modifier = Modifier.padding(bottom = 4.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -794,7 +1091,10 @@ private fun LearningScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Button(
-                            onClick = { onSpell(item.name) },
+                            onClick = {
+                                spellingIndex = -1
+                                onSpell(item.name)
+                            },
                             modifier = Modifier.fillMaxWidth().height(56.dp),
                             shape = RoundedCornerShape(18.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
@@ -818,6 +1118,133 @@ private fun LearningScreen(
     }
 }
 
+
+@Composable
+private fun QuizContent(
+    item: LearningItem,
+    options: List<LearningItem>,
+    bitmapCache: MutableMap<String, ImageBitmap>,
+    isLandscape: Boolean,
+    feedback: String?,
+    answeredCorrectly: Boolean,
+    onReplay: () -> Unit,
+    onChoose: (LearningItem) -> Unit,
+    onNext: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Find the ${item.name}!",
+            fontSize = if (isLandscape) 25.sp else 28.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF263238),
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        Button(
+            onClick = onReplay,
+            modifier = Modifier.padding(bottom = 12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF42A5F5))
+        ) {
+            Text("🔊 Replay question", fontWeight = FontWeight.Bold)
+        }
+
+        if (isLandscape) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                options.forEach { option ->
+                    QuizOption(
+                        option = option,
+                        bitmapCache = bitmapCache,
+                        enabled = feedback == null || !answeredCorrectly,
+                        onClick = { onChoose(option) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                options.forEach { option ->
+                    QuizOption(
+                        option = option,
+                        bitmapCache = bitmapCache,
+                        enabled = feedback == null || !answeredCorrectly,
+                        onClick = { onChoose(option) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+
+        if (feedback != null) {
+            Text(
+                text = feedback,
+                fontSize = 19.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (answeredCorrectly) Color(0xFF2E7D32) else Color(0xFFEF6C00),
+                modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
+            )
+        }
+
+        if (answeredCorrectly) {
+            Button(
+                onClick = onNext,
+                modifier = Modifier.padding(top = 4.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+            ) {
+                Text("Next question", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuizOption(
+    option: LearningItem,
+    bitmapCache: MutableMap<String, ImageBitmap>,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .height(150.dp)
+            .clickable(enabled = enabled, onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = option.color),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            ItemPicture(
+                item = option,
+                bitmapCache = bitmapCache,
+                modifier = Modifier.fillMaxWidth().weight(1f)
+            )
+            Text(
+                text = option.name,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF263238)
+            )
+        }
+    }
+}
+
 @Composable
 private fun ItemPicture(
     item: LearningItem,
@@ -832,21 +1259,54 @@ private fun ItemPicture(
         kotlin.random.Random.nextBoolean()
     }
 
-    val bitmap = remember(item.assetPath) {
+    val bitmap = remember(item.assetPath, item.name) {
         item.assetPath?.let { path ->
-            bitmapCache[path] ?: runCatching {
-                context.assets.open(path).use { stream ->
-                    BitmapFactory.decodeStream(stream)?.asImageBitmap()
+            bitmapCache[path] ?: run {
+                // Preferred location: app/src/main/assets/<category>/<file>.png
+                val fromAssets = runCatching {
+                    context.assets.open(path).use { stream ->
+                        BitmapFactory.decodeStream(stream)?.asImageBitmap()
+                    }
+                }.onFailure { error ->
+                    Log.d("KidsLearn", "Asset lookup failed for $path; trying drawable resources.", error)
+                }.getOrNull()
+
+                // Fallback location: app/src/main/res/drawable/<file>.png
+                val resourceName = path.substringAfterLast('/')
+                    .substringBeforeLast('.')
+                    .lowercase(Locale.US)
+                    .replace('-', '_')
+                val resourceId = context.resources.getIdentifier(
+                    resourceName,
+                    "drawable",
+                    context.packageName
+                )
+                val fromDrawable = if (fromAssets == null && resourceId != 0) {
+                    runCatching {
+                        BitmapFactory.decodeResource(context.resources, resourceId)?.asImageBitmap()
+                    }.onFailure { error ->
+                        Log.w("KidsLearn", "Unable to decode drawable resource: $resourceName", error)
+                    }.getOrNull()
+                } else null
+
+                (fromAssets ?: fromDrawable)?.also { decodedBitmap ->
+                    bitmapCache[path] = decodedBitmap
+                } ?: run {
+                    Log.w(
+                        "KidsLearn",
+                        "Image not found for ${item.name}. Checked assets/$path and drawable/$resourceName."
+                    )
+                    null
                 }
-            }.onFailure { error ->
-                Log.w("KidsLearn", "Unable to load image asset: $path", error)
-            }.getOrNull()?.also { decodedBitmap ->
-                bitmapCache[path] = decodedBitmap
             }
         }
     }
 
-    if (bitmap != null) {
+    if (item.name.all { it.isDigit() } ||
+        item.name in setOf("Circle", "Square", "Triangle", "Rectangle", "Star", "Heart", "Diamond", "Oval")
+    ) {
+        EducationalVisual(item = item, modifier = modifier.scale(animationScale))
+    } else if (bitmap != null) {
         Image(
             bitmap = bitmap,
             contentDescription = item.name,
