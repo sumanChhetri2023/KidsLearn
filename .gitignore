@@ -32,3 +32,11 @@ keystore.properties
 
 # Build outputs in all modules
 **/build/
+
+# Release signing key
+/kidslearn-release
+*.jks
+*.keystore
+
+# Generated release outputs
+/app/release/
