@@ -139,7 +139,9 @@ fun QuizScreen(
         )
 
         Text(
-            text = "Find the ${item.name}!",
+            text = if (item.name.isNotEmpty() && item.name.all { it.isDigit() })
+            {"Find the number ${item.name}!"}
+            else {"Find the ${item.name}!"},
             fontSize = if (isLandscape) 25.sp else 28.sp,
             fontWeight = FontWeight.Bold,
             color = Color(0xFF263238),
@@ -245,12 +247,6 @@ private fun QuizOption(
                 item = option,
                 bitmapCache = bitmapCache,
                 modifier = Modifier.fillMaxWidth().weight(1f)
-            )
-            Text(
-                text = option.name,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF263238)
             )
         }
     }

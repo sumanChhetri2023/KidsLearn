@@ -53,6 +53,26 @@ import com.education.kidslearn.data.LearningCategory
 import com.education.kidslearn.data.LearningItem
 import kotlinx.coroutines.launch
 
+private fun quizPrompt(name: String): String {
+    return if (name.isNotEmpty() && name.all { it.isDigit() })
+    {"Find the number $name"}
+    else {"Find the $name"}
+}
+
+private fun numberToWords(value: String): String {
+    val number = value.toIntOrNull() ?: return value
+
+    val words = listOf(
+        "Zero", "One", "Two", "Three", "Four",
+        "five", "six", "seven", "eight", "nine",
+        "ten", "eleven", "twelve", "thirteen",
+        "fourteen", "fifteen", "sixteen", "seventeen",
+        "eighteen", "nineteen", "twenty"
+    )
+
+    return words.getOrElse(number) { value }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LearningScreen(
@@ -93,6 +113,11 @@ fun LearningScreen(
     // Other learning categories continue to use their full shuffled item list.
     val sessionItems = if (category.name == "Quiz") shuffledItems.take(20) else shuffledItems
     val item = sessionItems.getOrNull(currentIndex)
+    val spellingWord = if (category.name == "Numbers") {
+        numberToWords(item?.name.orEmpty())
+    } else {
+        item?.name.orEmpty()
+    }
     var canvasColor by remember(category.name) {
         mutableStateOf(canvasColors.random())
     }
@@ -134,7 +159,7 @@ fun LearningScreen(
             if (quizMode) {
                 if (lastSpokenQuizItem != it.name) {
                     lastSpokenQuizItem = it.name
-                    onSpeak("Find the ${it.name}")
+                    onSpeak(quizPrompt(it.name))
                 }
             } else {
                 onSpeak(it.name)
@@ -185,7 +210,7 @@ fun LearningScreen(
                     totalQuestions = sessionItems.size,
                     score = quizScore,
                     quizComplete = quizComplete,
-                    onReplay = { onSpeak("Find the ${item.name}") },
+                    onReplay = { onSpeak(quizPrompt(item.name)) },
                     onChoose = { selected ->
                         // Once correct, ignore further taps for this question.
                         if (!quizAnsweredCorrectly) {
@@ -293,7 +318,7 @@ fun LearningScreen(
                                 )
                                 if (spellingIndex >= 0) {
                                     SpellingLetters(
-                                        word = item.name,
+                                        word = spellingWord,
                                         highlightedIndex = spellingIndex,
                                         modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
                                     )
@@ -318,7 +343,7 @@ fun LearningScreen(
                         Button(
                             onClick = {
                                 spellingIndex = -1
-                                onSpell(item.name)
+                                onSpell(spellingWord)
                             },
                             modifier = Modifier.fillMaxWidth().height(56.dp),
                             shape = RoundedCornerShape(18.dp),
@@ -416,7 +441,7 @@ fun LearningScreen(
                                 )
                                 if (spellingIndex >= 0) {
                                     SpellingLetters(
-                                        word = item.name,
+                                        word = spellingWord,
                                         highlightedIndex = spellingIndex,
                                         modifier = Modifier.padding(bottom = 4.dp)
                                     )
@@ -432,7 +457,7 @@ fun LearningScreen(
                         Button(
                             onClick = {
                                 spellingIndex = -1
-                                onSpell(item.name)
+                                onSpell(spellingWord)
                             },
                             modifier = Modifier.fillMaxWidth().height(56.dp),
                             shape = RoundedCornerShape(18.dp),
@@ -456,4 +481,3 @@ fun LearningScreen(
         }
     }
 }
-

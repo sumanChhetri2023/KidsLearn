@@ -1,5 +1,6 @@
 package com.education.kidslearn.ui.learning
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,9 +13,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,15 +35,15 @@ fun SpellingLetters(
     val letters = lettersForSpelling(word)
     if (letters.isEmpty()) return
 
-    // Short words keep natural-sized letter cells. Long words compress each cell
-    // only as much as needed to fit on one line within the canvas width.
+    // Keep all letters on one line, shrinking cells only when a long word needs it.
     BoxWithConstraints(
         modifier = modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center
     ) {
         val preferredCellWidth = 32.dp
         val letterGap = 2.dp
-        val availableForCells = (maxWidth - letterGap * (letters.size - 1)).coerceAtLeast(1.dp)
+        val availableForCells =
+            (maxWidth - letterGap * (letters.size - 1)).coerceAtLeast(1.dp)
         val cellWidth = minOf(preferredCellWidth, availableForCells / letters.size)
         val rowWidth = cellWidth * letters.size + letterGap * (letters.size - 1)
 
@@ -50,22 +53,43 @@ fun SpellingLetters(
             verticalAlignment = Alignment.CenterVertically
         ) {
             letters.forEachIndexed { index, letter ->
+                val isHighlighted = index == highlightedIndex
+                val scale by animateFloatAsState(
+                    targetValue = if (isHighlighted) 1.08f else 1f,
+                    label = "spellingLetterScale"
+                )
+
                 Surface(
-                    modifier = Modifier.width(cellWidth),
+                    modifier = Modifier
+                        .width(cellWidth)
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                        },
                     shape = RoundedCornerShape(6.dp),
-                    color = if (index == highlightedIndex) Color(0xFFFFD54F) else Color.White.copy(alpha = 0.75f),
+                    color = if (isHighlighted) {
+                        Color(0xFFFFD54F)
+                    } else {
+                        Color.White.copy(alpha = 0.75f)
+                    },
                     border = BorderStroke(
-                        width = if (index == highlightedIndex) 2.dp else 1.dp,
-                        color = if (index == highlightedIndex) Color(0xFFFF8F00) else Color(0xFFD7CCC8)
+                        width = if (isHighlighted) 2.dp else 1.dp,
+                        color = if (isHighlighted) {
+                            Color(0xFFE65100)
+                        } else {
+                            Color(0xFFD7CCC8)
+                        }
                     )
                 ) {
                     Box(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = letter.toString(),
-                            fontSize = 18.sp,
+                            fontSize = if (isHighlighted) 19.sp else 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF263238),
                             maxLines = 1
