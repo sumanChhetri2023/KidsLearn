@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -49,14 +47,17 @@ import com.education.kidslearn.nextCanvasColor
 import com.education.kidslearn.signatureBackground
 import com.education.kidslearn.QuizContent
 import com.education.kidslearn.ItemPicture
+import com.education.kidslearn.R
 import com.education.kidslearn.data.LearningCategory
 import com.education.kidslearn.data.LearningItem
 import kotlinx.coroutines.launch
 
 private fun quizPrompt(name: String): String {
-    return if (name.isNotEmpty() && name.all { it.isDigit() })
-    {"Find the number $name"}
-    else {"Find the $name"}
+    return if (name.isNotEmpty() && name.all { it.isDigit() }) {
+        "Find the number $name"
+    } else {
+        "Find the $name"
+    }
 }
 
 private fun numberToWords(value: String): String {
@@ -73,21 +74,141 @@ private fun numberToWords(value: String): String {
     return words.getOrElse(number) { value }
 }
 
+/**
+ * Returns a short spoken fact for common learning items.
+ * Items without a specific fact use a simple fallback sentence.
+ */
+private fun informationForItem(name: String): String {
+    return when (name.lowercase()) {
+        "lion" -> "Lions are big cats. A group of lions is called a pride."
+        "elephant" -> "Elephants have trunks that help them smell, drink, and pick things up."
+        "panda" -> "Giant pandas eat mostly bamboo."
+        "giraffe" -> "Giraffes are the tallest land animals and have very long necks."
+        "zebra" -> "Every zebra has a unique pattern of stripes."
+        "monkey" -> "Monkeys use their hands to hold food and climb."
+        "rabbit" -> "Rabbits have long ears and strong hind legs for jumping."
+        "tiger" -> "Tigers are big cats with orange fur and dark stripes."
+        "dog" -> "Dogs have a strong sense of smell and can learn many commands."
+        "cat" -> "Cats use their whiskers to help sense the space around them."
+        "cow" -> "Cows are farm animals that eat grass and other plants."
+        "horse" -> "Horses are strong animals that can run quickly."
+        "parrot" -> "Many parrots can imitate sounds and have colourful feathers."
+        "peacock" -> "A peacock can spread its colourful tail feathers like a fan."
+        "owl" -> "Owls have excellent hearing and many are active at night."
+        "duck" -> "Ducks have webbed feet that help them swim."
+        "penguin" -> "Penguins are birds that cannot fly but are excellent swimmers."
+        "car" -> "A car is a road vehicle used to carry people."
+        "bus" -> "A bus carries many passengers from one place to another."
+        "train" -> "A train travels on railway tracks and can carry people or goods."
+        "airplane" -> "An airplane flies through the air using its wings and engines."
+        "bicycle" -> "A bicycle has two wheels and is powered by pedalling."
+        "motorcycle" -> "A motorcycle is a motor-powered two-wheeled vehicle."
+        "truck" -> "A truck is often used to transport goods and heavy loads."
+        "boat" -> "A boat travels on water."
+        "helicopter" -> "A helicopter uses rotating blades to fly."
+        "tractor" -> "A tractor is a powerful vehicle often used on farms."
+        else -> "This is a $name."
+    }
+}
+
+/**
+ * Shared action controls for both portrait and landscape layouts.
+ */
+
+private fun categoryHasSounds(categoryName: String): Boolean {
+    return categoryName.trim().lowercase() in setOf(
+        "animals",
+        "birds",
+        "vehicles",
+        "insects"
+    )
+}
+
+private fun getSoundResource(itemName: String): Int? {
+    return when (itemName.trim().lowercase()) {
+        "lion" -> R.raw.lion
+        "dog" -> R.raw.dog
+        else -> null
+    }
+}
+
+@Composable
+private fun LearningActionButtons(
+    showSound: Boolean,
+    onSpellClick: () -> Unit,
+    onSoundClick: () -> Unit,
+    onInfoClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Spell button: shown in every learning category.
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            IconButton(onClick = onSpellClick) {
+                Text(
+                    text = "🔤",
+                    fontSize = 28.sp
+                )
+            }
+            Text(
+                text = "Spell",
+                fontSize = 13.sp
+            )
+        }
+
+        // Sound button: shown only when this category supports sounds.
+        if (showSound) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                IconButton(onClick = onSoundClick) {
+                    Text(
+                        text = "🔊",
+                        fontSize = 28.sp
+                    )
+                }
+                Text(
+                    text = "Sound",
+                    fontSize = 13.sp
+                )
+            }
+        }
+
+        // Info button: shown in every learning category.
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            IconButton(onClick = onInfoClick) {
+                Text(
+                    text = "ⓘ",
+                    fontSize = 30.sp,
+                    color = Color(0xFF1976D2)
+                )
+            }
+            Text(
+                text = "Info",
+                fontSize = 13.sp
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LearningScreen(
     category: LearningCategory,
     items: List<LearningItem>,
+    quizQuestionCount: Int = 20,
     onBack: () -> Unit,
     onSpeak: (String) -> Unit,
     onSpell: (String) -> Unit,
-    onSpellingProgress: (((Int) -> Unit)) -> Unit
+    onSpellingProgress: (((Int) -> Unit)) -> Unit,
+    onPlayPictureSound: (String) -> Unit
 ) {
     // Save the shuffled item order across configuration changes such as rotation.
     // Store item names because rememberSaveable can reliably restore a list of strings.
     val savedItemOrder = rememberSaveable(category.name) {
         mutableStateOf(items.shuffled().map { it.name })
     }
+
     val shuffledItems = remember(category.name, savedItemOrder.value, items) {
         savedItemOrder.value.mapNotNull { savedName ->
             items.firstOrNull { it.name == savedName }
@@ -111,36 +232,58 @@ fun LearningScreen(
 
     // Quiz sessions use exactly 20 distinct items when at least 20 are available.
     // Other learning categories continue to use their full shuffled item list.
-    val sessionItems = if (category.name == "Quiz") shuffledItems.take(20) else shuffledItems
+    val sessionItems =
+        if (category.name == "Quiz") {shuffledItems.take(quizQuestionCount.coerceIn(1, 20))}
+        else {shuffledItems}
+
     val item = sessionItems.getOrNull(currentIndex)
+
     val spellingWord = if (category.name == "Numbers") {
         numberToWords(item?.name.orEmpty())
     } else {
         item?.name.orEmpty()
     }
+
     var canvasColor by remember(category.name) {
         mutableStateOf(canvasColors.random())
     }
+
     var spellingIndex by remember { mutableStateOf(-1) }
-    var quizMode by rememberSaveable(category.name) { mutableStateOf(category.name == "Quiz") }
-    var quizFeedback by rememberSaveable(category.name) { mutableStateOf<String?>(null) }
-    var quizAnsweredCorrectly by rememberSaveable(category.name) { mutableStateOf(false) }
-    var quizFirstAttemptCorrect by rememberSaveable(category.name) { mutableStateOf(true) }
-    var quizScore by rememberSaveable(category.name) { mutableStateOf(0) }
-    var quizComplete by rememberSaveable(category.name) { mutableStateOf(false) }
-    // Persist which questions have already received their first answer. This is the
-    // scoring source of truth, even if rotation recreates the UI or clears feedback.
+    var quizMode by rememberSaveable(category.name) {mutableStateOf(category.name == "Quiz")}
+    var quizFeedback by rememberSaveable(category.name) {
+        mutableStateOf<String?>(null)
+    }
+    var quizAnsweredCorrectly by rememberSaveable(category.name) {
+        mutableStateOf(false)
+    }
+    var quizFirstAttemptCorrect by rememberSaveable(category.name) {
+        mutableStateOf(true)
+    }
+    var quizScore by rememberSaveable(category.name) {
+        mutableStateOf(0)
+    }
+    var quizComplete by rememberSaveable(category.name) {
+        mutableStateOf(false)
+    }
+
+    // Persist which questions have already received their first answer.
     var attemptedQuestionIndices by rememberSaveable(category.name) {
         mutableStateOf(emptyList<Int>())
     }
 
     val quizOptions = remember(category.name, item?.name, items) {
-        if (item == null || items.isEmpty()) emptyList()
-        else (items.filter { it.name != item.name }.shuffled().take(3) + item).shuffled()
+        if (item == null || items.isEmpty()) {
+            emptyList()
+        } else {
+            (items.filter { it.name != item.name }.shuffled().take(3) + item)
+                .shuffled()
+        }
     }
 
     LaunchedEffect(Unit) {
-        onSpellingProgress { index -> spellingIndex = index }
+        onSpellingProgress { index ->
+            spellingIndex = index
+        }
     }
 
     // Remember the last quiz prompt across orientation changes.
@@ -151,11 +294,12 @@ fun LearningScreen(
     LaunchedEffect(category.name, item?.name) {
         canvasScale.snapTo(1f)
         spellingIndex = -1
+
         // Do not reset quiz answer/feedback state in this effect.
-        // It can rerun after Activity recreation; only explicit navigation
-        // (Next question / Play again) should reset the quiz answer state.
+        // Explicit navigation resets the quiz answer state when needed.
         item?.let {
             canvasColor = nextCanvasColor(canvasColor)
+
             if (quizMode) {
                 if (lastSpokenQuizItem != it.name) {
                     lastSpokenQuizItem = it.name
@@ -188,17 +332,18 @@ fun LearningScreen(
                 actions = {}
             )
         },
-        // Keep the learning screen body consistent with the home screen signature background.
-        // Only the rounded image canvas changes color randomly.
         containerColor = signatureBackground
     ) { padding ->
         if (item != null) {
             val configuration = LocalConfiguration.current
-            val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
+            val isLandscape =
+                configuration.screenWidthDp > configuration.screenHeightDp
 
             if (quizMode) {
                 QuizContent(
-                    modifier = Modifier.fillMaxSize().padding(padding),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
                     onHome = onBack,
                     item = item,
                     options = quizOptions,
@@ -210,29 +355,38 @@ fun LearningScreen(
                     totalQuestions = sessionItems.size,
                     score = quizScore,
                     quizComplete = quizComplete,
-                    onReplay = { onSpeak(quizPrompt(item.name)) },
+                    onReplay = {
+                        onSpeak(quizPrompt(item.name))
+                    },
                     onChoose = { selected ->
                         // Once correct, ignore further taps for this question.
                         if (!quizAnsweredCorrectly) {
                             val correct = selected.name == item.name
-                            val hasAnsweredThisQuestion = currentIndex in attemptedQuestionIndices
+                            val hasAnsweredThisQuestion =
+                                currentIndex in attemptedQuestionIndices
 
                             // Only the first attempt can earn a point.
                             if (!hasAnsweredThisQuestion) {
-                                attemptedQuestionIndices = attemptedQuestionIndices + currentIndex
+                                attemptedQuestionIndices =
+                                    attemptedQuestionIndices + currentIndex
+
                                 if (correct) quizScore += 1
                                 quizFirstAttemptCorrect = correct
                             }
 
                             quizAnsweredCorrectly = correct
-                            quizFeedback = if (correct) "Correct! Great job!" else "Not quite. Try again!"
-                            onSpeak(if (correct) "Correct! Great job!" else "Try again")
+                            quizFeedback = if (correct) {"Correct! Great job!"}
+                            else {"Not quite. Try again!"}
+
+                            onSpeak(
+                                if (correct) "Correct! Great job!"
+                                else "Try again"
+                            )
                         }
                     },
                     onNext = {
-                        if (currentIndex + 1 >= sessionItems.size) {
-                            quizComplete = true
-                        } else {
+                        if (currentIndex + 1 >= sessionItems.size) {quizComplete = true}
+                        else {
                             currentIndex += 1
                             quizFeedback = null
                             quizAnsweredCorrectly = false
@@ -263,7 +417,10 @@ fun LearningScreen(
                             .weight(1f)
                             .fillMaxSize(),
                         shape = RoundedCornerShape(28.dp),
-                        border = BorderStroke(1.dp, Color(0xFFE0D8CC)),
+                        border = BorderStroke(
+                            1.dp,
+                            Color(0xFFE0D8CC)
+                        ),
                         colors = CardDefaults.cardColors(containerColor = canvasColor),
                         elevation = CardDefaults.cardElevation(defaultElevation = 5.dp)
                     ) {
@@ -275,29 +432,47 @@ fun LearningScreen(
                                     indication = null
                                 ) {
                                     animationScope.launch {
-                                        canvasScale.animateTo(1.045f, tween(100))
-                                        canvasScale.animateTo(1f, tween(180))
+                                        canvasScale.animateTo(
+                                            1.045f,
+                                            tween(100)
+                                        )
+                                        canvasScale.animateTo(
+                                            1f,
+                                            tween(180)
+                                        )
                                     }
                                     onSpeak(item.name)
                                 }
-                                .pointerInput(category.name, currentIndex, swipeThresholdPx) {
+                                .pointerInput(
+                                    category.name,
+                                    currentIndex,
+                                    swipeThresholdPx
+                                ) {
                                     detectHorizontalDragGestures(
-                                        onHorizontalDrag = { _, dragAmount -> totalDrag += dragAmount },
+                                        onHorizontalDrag = { _, dragAmount ->
+                                            totalDrag += dragAmount
+                                        },
                                         onDragEnd = {
-                                            if (totalDrag < -swipeThresholdPx) {
-                                                currentIndex = (currentIndex + 1) % shuffledItems.size
-                                            } else if (totalDrag > swipeThresholdPx) {
-                                                currentIndex = if (currentIndex == 0) shuffledItems.lastIndex else currentIndex - 1
+                                            if (shuffledItems.isNotEmpty()) {
+                                                if (totalDrag < -swipeThresholdPx) {
+                                                    currentIndex = (currentIndex + 1) % shuffledItems.size
+                                                } else if (totalDrag > swipeThresholdPx) {
+                                                    currentIndex =
+                                                        if (currentIndex == 0) {shuffledItems.lastIndex}
+                                                        else {currentIndex - 1}
+                                                }
                                             }
                                             totalDrag = 0f
                                         },
-                                        onDragCancel = { totalDrag = 0f }
+                                        onDragCancel = {totalDrag = 0f}
                                     )
                                 },
                             contentAlignment = Alignment.Center
                         ) {
                             Column(
-                                modifier = Modifier.fillMaxSize().padding(8.dp),
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(8.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
                             ) {
@@ -309,6 +484,7 @@ fun LearningScreen(
                                         .weight(1f),
                                     animationScale = canvasScale.value
                                 )
+
                                 Text(
                                     text = item.name,
                                     fontSize = 28.sp,
@@ -316,11 +492,15 @@ fun LearningScreen(
                                     color = Color(0xFF263238),
                                     modifier = Modifier.padding(4.dp)
                                 )
+
                                 if (spellingIndex >= 0) {
                                     SpellingLetters(
                                         word = spellingWord,
                                         highlightedIndex = spellingIndex,
-                                        modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+                                        modifier = Modifier.padding(
+                                            top = 4.dp,
+                                            bottom = 4.dp
+                                        )
                                     )
                                 }
                             }
@@ -340,22 +520,23 @@ fun LearningScreen(
                             color = Color(0xFF546E7A),
                             modifier = Modifier.padding(bottom = 12.dp)
                         )
-                        Button(
-                            onClick = {
+
+                        LearningActionButtons(
+                            showSound = categoryHasSounds(category.name),
+                            onSpellClick = {
                                 spellingIndex = -1
                                 onSpell(spellingWord)
                             },
-                            modifier = Modifier.fillMaxWidth().height(56.dp),
-                            shape = RoundedCornerShape(18.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
-                        ) {
-                            Text(
-                                text = "Spell ${item.name}",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                            onSoundClick = {
+                                getSoundResource(item.name)?.let {
+                                    onPlayPictureSound(item.name)
+                                }
+                            },
+                            onInfoClick = {onSpeak(informationForItem(item.name))}
+                        )
+
                         Spacer(modifier = Modifier.height(12.dp))
+
                         Text(
                             text = "${currentIndex + 1} of ${shuffledItems.size}",
                             fontSize = 14.sp,
@@ -376,7 +557,10 @@ fun LearningScreen(
                         text = "Swipe left or right to explore",
                         fontSize = 14.sp,
                         color = Color(0xFF546E7A),
-                        modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+                        modifier = Modifier.padding(
+                            top = 4.dp,
+                            bottom = 8.dp
+                        )
                     )
 
                     Card(
@@ -385,7 +569,10 @@ fun LearningScreen(
                             .fillMaxWidth()
                             .padding(vertical = 8.dp),
                         shape = RoundedCornerShape(28.dp),
-                        border = BorderStroke(1.dp, Color(0xFFE0D8CC)),
+                        border = BorderStroke(
+                            1.dp,
+                            Color(0xFFE0D8CC)
+                        ),
                         colors = CardDefaults.cardColors(containerColor = canvasColor),
                         elevation = CardDefaults.cardElevation(defaultElevation = 5.dp)
                     ) {
@@ -397,29 +584,48 @@ fun LearningScreen(
                                     indication = null
                                 ) {
                                     animationScope.launch {
-                                        canvasScale.animateTo(1.045f, tween(100))
-                                        canvasScale.animateTo(1f, tween(180))
+                                        canvasScale.animateTo(
+                                            1.045f,
+                                            tween(100)
+                                        )
+                                        canvasScale.animateTo(
+                                            1f,
+                                            tween(180)
+                                        )
                                     }
                                     onSpeak(item.name)
                                 }
-                                .pointerInput(category.name, currentIndex, swipeThresholdPx) {
+                                .pointerInput(
+                                    category.name,
+                                    currentIndex,
+                                    swipeThresholdPx
+                                ) {
                                     detectHorizontalDragGestures(
-                                        onHorizontalDrag = { _, dragAmount -> totalDrag += dragAmount },
+                                        onHorizontalDrag = { _, dragAmount ->
+                                            totalDrag += dragAmount
+                                        },
                                         onDragEnd = {
-                                            if (totalDrag < -swipeThresholdPx) {
-                                                currentIndex = (currentIndex + 1) % shuffledItems.size
-                                            } else if (totalDrag > swipeThresholdPx) {
-                                                currentIndex = if (currentIndex == 0) shuffledItems.lastIndex else currentIndex - 1
+                                            if (shuffledItems.isNotEmpty()) {
+                                                if (totalDrag < -swipeThresholdPx) {
+                                                    currentIndex =
+                                                        (currentIndex + 1) % shuffledItems.size
+                                                } else if (totalDrag > swipeThresholdPx) {
+                                                    currentIndex =
+                                                        if (currentIndex == 0) {shuffledItems.lastIndex}
+                                                        else {currentIndex - 1}
+                                                }
                                             }
                                             totalDrag = 0f
                                         },
-                                        onDragCancel = { totalDrag = 0f }
+                                        onDragCancel = {totalDrag = 0f}
                                     )
                                 },
                             contentAlignment = Alignment.Center
                         ) {
                             Column(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
                             ) {
@@ -431,7 +637,9 @@ fun LearningScreen(
                                         .weight(1f),
                                     animationScale = canvasScale.value
                                 )
+
                                 Spacer(modifier = Modifier.height(12.dp))
+
                                 Text(
                                     text = item.name,
                                     fontSize = 32.sp,
@@ -439,6 +647,7 @@ fun LearningScreen(
                                     color = Color(0xFF263238),
                                     modifier = Modifier.padding(8.dp)
                                 )
+
                                 if (spellingIndex >= 0) {
                                     SpellingLetters(
                                         word = spellingWord,
@@ -451,25 +660,27 @@ fun LearningScreen(
                     }
 
                     Column(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Button(
-                            onClick = {
+                        LearningActionButtons(
+                            showSound = categoryHasSounds(category.name),
+                            onSpellClick = {
                                 spellingIndex = -1
                                 onSpell(spellingWord)
                             },
-                            modifier = Modifier.fillMaxWidth().height(56.dp),
-                            shape = RoundedCornerShape(18.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
-                        ) {
-                            Text(
-                                text = "Spell ${item.name}",
-                                fontSize = 19.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                            onSoundClick = {
+                                getSoundResource(item.name)?.let {
+                                    onPlayPictureSound(item.name)
+                                }
+                            },
+                            onInfoClick = {onSpeak(informationForItem(item.name))}
+                        )
+
                         Spacer(modifier = Modifier.height(12.dp))
+
                         Text(
                             text = "${currentIndex + 1} of ${shuffledItems.size}",
                             fontSize = 14.sp,
