@@ -197,15 +197,11 @@ class MainActivity : ComponentActivity() {
                     .putBoolean(KEY_SPOKEN_WORDS, enabled)
                     .apply()
 
-                if (!enabled) {
-                    speechManager.stopSpeech()
-                }
+                if (!enabled) {speechManager.stopSpeech()}
             }
 
             MaterialTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = signatureBackground
+                Surface(modifier = Modifier.fillMaxSize(), color = signatureBackground
                 ) {
                     KidsLearnApp(
                         musicEnabled = musicEnabled,
@@ -221,25 +217,11 @@ class MainActivity : ComponentActivity() {
                         selectedQuizCategories = selectedQuizCategories,
                         onQuizQuestionCountChanged = onQuizQuestionCountChanged,
                         onQuizCategoriesChanged = onQuizCategoriesChanged,
-                        onSpeak = { word ->
-                            if (spokenWordsEnabled) {
-                                speechManager.speakWord(word)
-                            }
-                        },
-                        onSpell = { word ->
-                            if (spokenWordsEnabled) {
-                                speechManager.spellWord(word)
-                            }
-                        },
-                        onStopSpeech = {
-                            speechManager.stopSpeech()
-                        },
-                        onSpellingProgress = { callback ->
-                            speechManager.setSpellingProgressCallback(callback)
-                        },
-                        onPlaySoundEffect = {
-                            audioController.playTap()
-                        },
+                        onSpeak = { word -> if (spokenWordsEnabled) {speechManager.speakWord(word)}},
+                        onSpell = { word -> if (spokenWordsEnabled) {speechManager.spellWord(word)}},
+                        onStopSpeech = {speechManager.stopSpeech()},
+                        onSpellingProgress = { callback -> speechManager.setSpellingProgressCallback(callback)},
+                        onPlaySoundEffect = {audioController.playTap()},
                         onPlayPictureSound = { itemName ->
                             speechManager.stopSpeech()
                             audioController.playPictureSound(itemName)
@@ -253,20 +235,12 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
 
-        if (::audioController.isInitialized) {
-            audioController.startMusic()
-        }
+        if (::audioController.isInitialized) {audioController.startMusic()}
     }
 
     override fun onStop() {
-        if (::audioController.isInitialized) {
-            audioController.pauseMusic()
-        }
-
-        if (::speechManager.isInitialized) {
-            speechManager.stopSpeech()
-        }
-
+        if (::audioController.isInitialized) {audioController.pauseMusic()}
+        if (::speechManager.isInitialized) {speechManager.stopSpeech()}
         super.onStop()
     }
 
@@ -276,9 +250,7 @@ class MainActivity : ComponentActivity() {
             speechManager.shutdown()
         }
 
-        if (::audioController.isInitialized) {
-            audioController.release()
-        }
+        if (::audioController.isInitialized) {audioController.release()}
 
         super.onDestroy()
     }
@@ -307,26 +279,15 @@ private fun KidsLearnApp(
     onQuizCategoriesChanged: (Set<String>) -> Unit
 
 ) {
-    var selectedCategoryName by rememberSaveable {
-        mutableStateOf<String?>(null)
-    }
-
-    var showSettings by rememberSaveable {
-        mutableStateOf(false)
-    }
-
-    val selectedCategory = categories.firstOrNull {
-        it.name == selectedCategoryName
-    }
+    var selectedCategoryName by rememberSaveable {mutableStateOf<String?>(null)}
+    var showSettings by rememberSaveable {mutableStateOf(false)}
+    val selectedCategory = categories.firstOrNull {it.name == selectedCategoryName}
 
     BackHandler(enabled = selectedCategory != null || showSettings) {
         onStopSpeech()
 
-        if (showSettings) {
-            showSettings = false
-        } else {
-            selectedCategoryName = null
-        }
+        if (showSettings) {showSettings = false}
+        else {selectedCategoryName = null}
     }
 
     when {

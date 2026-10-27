@@ -14,10 +14,14 @@ class AudioController(context: Context) {
     private var soundPool: SoundPool? = null
     private var tapSoundId: Int = 0
     private var soundLoaded = false
+
     private var musicEnabled = true
     private var effectsEnabled = true
     private var released = false
     private var musicVolume = 0.25f
+
+    // Keep track of picture sounds so they can be stopped during cleanup.
+    private val pictureSoundPlayers = mutableSetOf<MediaPlayer>()
 
     init {
         val attributes = AudioAttributes.Builder()
@@ -31,10 +35,11 @@ class AudioController(context: Context) {
             .build()
             .also { pool ->
                 pool.setOnLoadCompleteListener { _, sampleId, status ->
-                    if (sampleId == tapSoundId && status == 0) {
+                    if (!released && sampleId == tapSoundId && status == 0) {
                         soundLoaded = true
                     }
                 }
+
                 tapSoundId = pool.load(appContext, R.raw.soft_tap, 1)
             }
 
@@ -48,7 +53,10 @@ class AudioController(context: Context) {
     }
 
     fun setMusicEnabled(enabled: Boolean) {
+        if (released) return
+
         musicEnabled = enabled
+
         if (enabled) {
             startMusic()
         } else {
@@ -57,11 +65,19 @@ class AudioController(context: Context) {
     }
 
     fun setMusicVolume(volume: Float) {
+        if (released) return
+
         musicVolume = volume.coerceIn(0f, 1f)
-        musicPlayer?.setVolume(musicVolume, musicVolume)
+
+        try {
+            musicPlayer?.setVolume(musicVolume, musicVolume)
+        } catch (_: IllegalStateException) {
+            // Player is no longer available.
+        }
     }
 
     fun setSoundEffectsEnabled(enabled: Boolean) {
+        if (released) return
         effectsEnabled = enabled
     }
 
@@ -83,7 +99,9 @@ class AudioController(context: Context) {
 
         try {
             musicPlayer?.let { player ->
-                if (!player.isPlaying) player.start()
+                if (!player.isPlaying) {
+                    player.start()
+                }
             }
         } catch (_: IllegalStateException) {
             // Player is no longer available.
@@ -93,7 +111,9 @@ class AudioController(context: Context) {
     fun pauseMusic() {
         try {
             musicPlayer?.let { player ->
-                if (player.isPlaying) player.pause()
+                if (player.isPlaying) {
+                    player.pause()
+                }
             }
         } catch (_: IllegalStateException) {
             // Player is no longer available.
@@ -101,7 +121,7 @@ class AudioController(context: Context) {
     }
 
     fun playPictureSound(itemName: String) {
-        if (released) return
+        if (released || !effectsEnabled) return
 
         val soundResource = when (itemName.trim().lowercase()) {
             "lion" -> R.raw.lion
@@ -109,30 +129,72 @@ class AudioController(context: Context) {
             else -> return
         }
 
-        val player = MediaPlayer.create(appContext, soundResource) ?: return
+        val player = MediaPlayer.create(
+            appContext,
+            soundResource
+        ) ?: return
 
-        player.setOnCompletionListener { it.release() }
-        player.setOnErrorListener { mp, _, _ ->
-            mp.release()
+        pictureSoundPlayers.add(player)
+
+        player.setOnCompletionListener { completedPlayer ->
+            releasePictureSoundPlayer(completedPlayer)
+        }
+
+        player.setOnErrorListener { failedPlayer, _, _ ->
+            releasePictureSoundPlayer(failedPlayer)
             true
         }
 
-        player.start()
+        try {
+            player.start()
+        } catch (_: IllegalStateException) {
+            releasePictureSoundPlayer(player)
+        }
+    }
+
+    private fun releasePictureSoundPlayer(player: MediaPlayer) {
+        // Remove first to avoid releasing the same player more than once.
+        if (pictureSoundPlayers.remove(player)) {
+            runCatching {
+                player.setOnCompletionListener(null)
+            }
+
+            runCatching {
+                player.setOnErrorListener(null)
+            }
+
+            runCatching {
+                player.release()
+            }
+        }
     }
 
     fun release() {
         if (released) return
+
         released = true
 
+        // Stop and release all active picture sounds.
+        pictureSoundPlayers.toList().forEach { player ->
+            releasePictureSoundPlayer(player)
+        }
+
+        // Stop background music before releasing its player.
         try {
-            musicPlayer?.stop()
+            musicPlayer?.let { player ->
+                if (player.isPlaying) {
+                    player.stop()
+                }
+            }
         } catch (_: IllegalStateException) {
-            // Player may already be stopped.
+            // Player may already be stopped or unavailable.
         }
 
         musicPlayer?.release()
         musicPlayer = null
 
+        // Release tap sound resources.
+        soundPool?.setOnLoadCompleteListener(null)
         soundPool?.release()
         soundPool = null
         soundLoaded = false
