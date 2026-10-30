@@ -13,11 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -25,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.education.kidslearn.audio.SpeechVoice
 
 private val settingsBackground = Color(0xFFFFFBF5)
 private val sectionBorder = Color(0xFFD3CCC2)
@@ -47,6 +44,13 @@ fun SettingsScreen(
     onEffectsChanged: (Boolean) -> Unit,
     spokenWordsEnabled: Boolean,
     onSpokenWordsChanged: (Boolean) -> Unit,
+    speechVolumePercent: Int,
+    onSpeechVolumeChanged: (Int) -> Unit,
+    speechRate: Float,
+    onSpeechRateChanged: (Float) -> Unit,
+    availableVoices: List<SpeechVoice>,
+    selectedVoiceId: String,
+    onSpeechVoiceChanged: (String) -> Unit,
     quizQuestionCount: Int,
     onQuizQuestionCountChanged: (Int) -> Unit,
     availableQuizCategories: List<String>,
@@ -57,6 +61,7 @@ fun SettingsScreen(
 
     val context = LocalContext.current
     var showAppInfo by remember { mutableStateOf(false) }
+    var voiceMenuExpanded by remember { mutableStateOf(false) }
 
     val appVersion = remember {
         try {
@@ -91,20 +96,15 @@ fun SettingsScreen(
         },
         containerColor = settingsBackground
     ) { padding ->
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(
-                    horizontal = 12.dp,
-                    vertical = 8.dp
-                ),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-
-            // 1. Background music and volume share one border.
+            // 1. Background music and its independent volume.
             SettingsSection {
                 Column {
                     SettingsSwitchRow(
@@ -116,9 +116,7 @@ fun SettingsScreen(
                     )
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(
-                            horizontal = 12.dp
-                        ),
+                        modifier = Modifier.padding(horizontal = 12.dp),
                         color = Color(0xFFEAE5DE),
                         thickness = 1.dp
                     )
@@ -153,7 +151,7 @@ fun SettingsScreen(
                 )
             }
 
-            // 4. Quiz questions and categories share one border.
+            // 4. Quiz settings.
             SettingsSection {
                 Column(
                     modifier = Modifier.padding(
@@ -206,7 +204,6 @@ fun SettingsScreen(
                                     it in selectedQuizCategories
                                 }
 
-                    // Select all categories.
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -250,7 +247,6 @@ fun SettingsScreen(
                         )
                     }
 
-                    // Dense two-column category list.
                     if (availableQuizCategories.isNotEmpty()) {
                         availableQuizCategories.chunked(2).forEach { rowItems ->
                             Row(
@@ -266,21 +262,16 @@ fun SettingsScreen(
                                             .weight(1f)
                                             .clickable {
                                                 val updated =
-                                                    selectedQuizCategories
-                                                        .toMutableSet()
+                                                    selectedQuizCategories.toMutableSet()
 
                                                 if (isSelected) {
                                                     if (updated.size > 1) {
                                                         updated.remove(category)
-                                                        onQuizCategoriesChanged(
-                                                            updated
-                                                        )
+                                                        onQuizCategoriesChanged(updated)
                                                     }
                                                 } else {
                                                     updated.add(category)
-                                                    onQuizCategoriesChanged(
-                                                        updated
-                                                    )
+                                                    onQuizCategoriesChanged(updated)
                                                 }
                                             },
                                         verticalAlignment = Alignment.CenterVertically
@@ -289,19 +280,14 @@ fun SettingsScreen(
                                             checked = isSelected,
                                             onCheckedChange = { checked ->
                                                 val updated =
-                                                    selectedQuizCategories
-                                                        .toMutableSet()
+                                                    selectedQuizCategories.toMutableSet()
 
                                                 if (checked) {
                                                     updated.add(category)
-                                                    onQuizCategoriesChanged(
-                                                        updated
-                                                    )
+                                                    onQuizCategoriesChanged(updated)
                                                 } else if (updated.size > 1) {
                                                     updated.remove(category)
-                                                    onQuizCategoriesChanged(
-                                                        updated
-                                                    )
+                                                    onQuizCategoriesChanged(updated)
                                                 }
                                             },
                                             modifier = Modifier.size(36.dp)
@@ -330,7 +316,216 @@ fun SettingsScreen(
                 }
             }
 
-            // 5. About, privacy, contact and app information.
+
+            // 5. Speech settings.
+            SettingsSection {
+                Column(
+                    modifier = Modifier.padding(
+                        horizontal = 12.dp,
+                        vertical = 10.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Speech Settings",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color(0xFF343452)
+                    )
+
+                    // Speech volume: three positions, matching Music volume.
+                    val speechVolumeLevel = when {
+                        speechVolumePercent < 48 -> 0
+                        speechVolumePercent < 83 -> 1
+                        else -> 2
+                    }
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Speech volume",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = if (spokenWordsEnabled) {
+                                    Color(0xFF343452)
+                                } else {
+                                    Color.Gray
+                                }
+                            )
+
+                            Spacer(modifier = Modifier.weight(1f))
+
+                            Text(
+                                text = when (speechVolumeLevel) {
+                                    0 -> "Low"
+                                    1 -> "Mid"
+                                    else -> "High"
+                                },
+                                style = MaterialTheme.typography.labelLarge,
+                                color = if (spokenWordsEnabled) {
+                                    Color(0xFF5C58A5)
+                                } else {
+                                    Color.Gray
+                                }
+                            )
+                        }
+
+                        Slider(
+                            value = speechVolumeLevel.toFloat(),
+                            onValueChange = { value ->
+                                val volumePercent = when (
+                                    value.toInt().coerceIn(0, 2)
+                                ) {
+                                    0 -> 30
+                                    1 -> 65
+                                    else -> 100
+                                }
+                                onSpeechVolumeChanged(volumePercent)
+                            },
+                            valueRange = 0f..2f,
+                            steps = 1,
+                            enabled = spokenWordsEnabled
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "Low",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Text(
+                                "Mid",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Text(
+                                "High",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(
+                        color = Color(0xFFEAE5DE),
+                        thickness = 1.dp
+                    )
+
+                    // Speech speed: Slow, Medium, Fast.
+                    Text(
+                        text = "Speech speed",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(
+                            "Slow" to 0.65f,
+                            "Medium" to 0.85f,
+                            "Fast" to 1.15f
+                        ).forEach { (label, rate) ->
+                            FilterChip(
+                                selected = speechRate == rate,
+                                onClick = { onSpeechRateChanged(rate) },
+                                label = {
+                                    Text(
+                                        text = label,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                },
+                                modifier = Modifier.weight(1f),
+                                enabled = spokenWordsEnabled
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(
+                        color = Color(0xFFEAE5DE),
+                        thickness = 1.dp
+                    )
+
+                    // English voice selector.
+                    Text(
+                        text = "English voice",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+
+                    val selectedVoiceLabel = availableVoices
+                        .firstOrNull { it.id == selectedVoiceId }
+                        ?.label ?: "Default English (US) voice"
+
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(
+                            onClick = { voiceMenuExpanded = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = spokenWordsEnabled
+                        ) {
+                            Text(
+                                text = selectedVoiceLabel,
+                                modifier = Modifier.weight(1f),
+                                textAlign = TextAlign.Start
+                            )
+                            Text("▾")
+                        }
+
+                        DropdownMenu(
+                            expanded = voiceMenuExpanded,
+                            onDismissRequest = {
+                                voiceMenuExpanded = false
+                            },
+                            modifier = Modifier.fillMaxWidth(0.85f)
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text("Default English (US) voice")
+                                },
+                                onClick = {
+                                    onSpeechVoiceChanged("")
+                                    voiceMenuExpanded = false
+                                }
+                            )
+
+                            availableVoices.forEach { voice ->
+                                DropdownMenuItem(
+                                    text = { Text(voice.label) },
+                                    onClick = {
+                                        onSpeechVoiceChanged(voice.id)
+                                        voiceMenuExpanded = false
+                                    }
+                                )
+                            }
+
+                            if (availableVoices.isEmpty()) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            "No additional English voices found"
+                                        )
+                                    },
+                                    onClick = {
+                                        voiceMenuExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    Text(
+                        text = "Available voices depend on the speech engine and voices installed on your device.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF616161)
+                    )
+                }
+            }
+
+
+            // 6. About, privacy, contact and app information.
             SettingsSection {
                 Column(
                     modifier = Modifier.padding(vertical = 4.dp)
@@ -370,10 +565,7 @@ fun SettingsScreen(
                         title = "Privacy Policy",
                         subtitle = "Read our privacy policy",
                         onClick = {
-                            openExternalUrl(
-                                context,
-                                PRIVACY_POLICY_URL
-                            )
+                            openExternalUrl(context, PRIVACY_POLICY_URL)
                         }
                     )
 
@@ -415,9 +607,7 @@ fun SettingsScreen(
                                 context.startActivity(
                                     Intent(
                                         Intent.ACTION_VIEW,
-                                        Uri.parse(
-                                            "market://details?id=$packageName"
-                                        )
+                                        Uri.parse("market://details?id=$packageName")
                                     )
                                 )
                             } catch (_: ActivityNotFoundException) {
@@ -444,15 +634,10 @@ fun SettingsScreen(
         }
     }
 
-    // App Information dialog.
     if (showAppInfo) {
         AlertDialog(
-            onDismissRequest = {
-                showAppInfo = false
-            },
-            title = {
-                Text("App Information")
-            },
+            onDismissRequest = { showAppInfo = false },
+            title = { Text("App Information") },
             text = {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -461,22 +646,15 @@ fun SettingsScreen(
                         text = "Kids Learn",
                         style = MaterialTheme.typography.titleMedium
                     )
-
                     Text("Version: $appVersion")
-
                     Text(
                         text = "An educational app designed to help children learn through pictures, pronunciation and quizzes."
                     )
-
                     Text("Developer contact: $DEVELOPER_EMAIL")
                 }
             },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        showAppInfo = false
-                    }
-                ) {
+                TextButton(onClick = { showAppInfo = false }) {
                     Text("Close")
                 }
             }
@@ -537,8 +715,8 @@ private fun MusicVolumeSelector(
 
         Slider(
             value = selectedLevel.coerceIn(0, 2).toFloat(),
-            onValueChange = { value ->
-                onLevelSelected(value.toInt().coerceIn(0, 2))
+            onValueChange = {
+                onLevelSelected(it.toInt().coerceIn(0, 2))
             },
             valueRange = 0f..2f,
             steps = 1,
@@ -567,13 +745,8 @@ private fun SettingsSwitchRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable {
-                onCheckedChange(!checked)
-            }
-            .padding(
-                horizontal = 12.dp,
-                vertical = 10.dp
-            ),
+            .clickable { onCheckedChange(!checked) }
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -590,7 +763,6 @@ private fun SettingsSwitchRow(
                 text = title,
                 style = MaterialTheme.typography.titleSmall
             )
-
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
@@ -616,10 +788,7 @@ private fun AboutActionRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(
-                horizontal = 12.dp,
-                vertical = 10.dp
-            ),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -637,7 +806,6 @@ private fun AboutActionRow(
                 style = MaterialTheme.typography.titleSmall,
                 color = Color(0xFF343452)
             )
-
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
@@ -659,10 +827,7 @@ private fun openExternalUrl(
 ) {
     try {
         context.startActivity(
-            Intent(
-                Intent.ACTION_VIEW,
-                Uri.parse(url)
-            )
+            Intent(Intent.ACTION_VIEW, Uri.parse(url))
         )
     } catch (_: ActivityNotFoundException) {
         Toast.makeText(

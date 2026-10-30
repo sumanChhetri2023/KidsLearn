@@ -1,5 +1,6 @@
 package com.education.kidslearn.ui.home
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,6 +23,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,21 +35,55 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.Image
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import com.education.kidslearn.R
 import com.education.kidslearn.data.LearningCategory
 import com.education.kidslearn.data.categories
+import java.time.LocalTime
 
 private val homeBackground = Color(0xFFFFFBF5)
 private val headingColor = Color(0xFF343452)
 private val subtitleColor = Color(0xFF77758D)
 private val promptBackground = Color(0xFFEDE7FF)
 
+private fun greetingForHour(hour: Int): Pair<String, String> {
+    return when (hour) {
+        in 5..11 -> "Good morning! ☀️" to "Ready for some fun learning?"
+        in 12..16 -> "Good afternoon! 🌤️" to "Ready for some fun learning?"
+        in 17..20 -> "Good evening! 🌙" to "Let's discover something new!"
+        else -> "Time to wind down! 🌟" to "A little learning goes a long way."
+    }
+}
+
 @Composable
 fun HomeScreen(
     onCategorySelected: (LearningCategory) -> Unit,
     onSettingsClick: () -> Unit = {}
 ) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    var currentHour by remember {
+        mutableIntStateOf(LocalTime.now().hour)
+    }
+
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                currentHour = LocalTime.now().hour
+            }
+        }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    val (greeting, subtitle) = greetingForHour(currentHour)
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -52,7 +91,7 @@ fun HomeScreen(
             .padding(horizontal = 14.dp)
             .padding(top = 12.dp)
     ) {
-        // App branding and Settings entry point
+        // App branding and Settings entry point.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -101,7 +140,7 @@ fun HomeScreen(
             }
         }
 
-        // Friendly introduction
+        // Greeting based on the phone's local time.
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -117,8 +156,8 @@ fun HomeScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "What shall we learn today? ☀️",
-                    fontSize = 17.sp,
+                    text = greeting,
+                    fontSize = 19.sp,
                     fontWeight = FontWeight.Bold,
                     color = headingColor,
                     textAlign = TextAlign.Center
@@ -127,7 +166,7 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "Choose a topic to get started.",
+                    text = subtitle,
                     fontSize = 13.sp,
                     color = subtitleColor,
                     textAlign = TextAlign.Center
@@ -135,7 +174,7 @@ fun HomeScreen(
             }
         }
 
-        // Three-column category grid
+        // Three-column category grid.
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
             modifier = Modifier.fillMaxSize(),
