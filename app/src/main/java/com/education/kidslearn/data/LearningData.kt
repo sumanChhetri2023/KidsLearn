@@ -49,7 +49,7 @@ private val animals = listOf(
     LearningItem("Deer", "🦌", Color(0xFFE8F5E9), "animals/deer.png"),
     LearningItem("Wolf", "🐺", Color(0xFFE3F2FD), "animals/wolf.png"),
     LearningItem("Kangaroo", "🦘", Color(0xFFFFF8E1), "animals/kangaroo.png"),
-    LearningItem("Hippopotamus", "🦛", Color(0xFFEDE7F6), "animals/hippo.png")
+    LearningItem("Hippo", "🦛", Color(0xFFEDE7F6), "animals/hippo.png")
 )
 
 private val birds = listOf(

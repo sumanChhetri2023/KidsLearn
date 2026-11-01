@@ -20,101 +20,144 @@ data class SpeechVoice(
 
 class SpeechManager(context: Context) {
 
+    private val appContext = context.applicationContext
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val speechLocale = Locale.US
+
     private var textToSpeech: TextToSpeech? = null
+
+    @Volatile
     private var speechReady = false
+
+    @Volatile
+    private var spellingSession = 0L
+
     private var pendingSpeechAction: (() -> Unit)? = null
     private var spellingProgressCallback: ((Int) -> Unit)? = null
     private var voicesChangedCallback: ((List<SpeechVoice>) -> Unit)? = null
-    private var spellingSession = 0L
-
-    private val speechLocale = Locale.US
-    private val mainHandler = Handler(Looper.getMainLooper())
 
     private var speechVolume = 1.0f
     private var speechRate = 0.85f
     private var selectedVoiceId: String? = null
+    private var released = false
 
     init {
-        textToSpeech = TextToSpeech(context.applicationContext) { status ->
-            val tts = textToSpeech
+        textToSpeech = TextToSpeech(appContext) { status ->
+            if (released) return@TextToSpeech
 
-            if (status == TextToSpeech.SUCCESS && tts != null) {
-                val result = tts.setLanguage(speechLocale)
+            val tts = textToSpeech ?: return@TextToSpeech
 
-                speechReady = result != TextToSpeech.LANG_MISSING_DATA &&
-                        result != TextToSpeech.LANG_NOT_SUPPORTED
-
-                if (speechReady) {
-                    applySpeechSettings()
-
-                    tts.setOnUtteranceProgressListener(
-                        object : UtteranceProgressListener() {
-
-                            override fun onStart(utteranceId: String?) {
-                                val parts = utteranceId?.split(":")
-                                    ?: return
-
-                                if (
-                                    parts.size == 3 &&
-                                    parts[0] == "spell" &&
-                                    parts[1].toLongOrNull() == spellingSession
-                                ) {
-                                    val index = parts[2].toIntOrNull()
-                                        ?: return
-
-                                    mainHandler.post {
-                                        spellingProgressCallback?.invoke(index)
-                                    }
-                                }
-                            }
-
-                            override fun onDone(utteranceId: String?) {
-                                val parts = utteranceId?.split(":")
-                                    ?: return
-
-                                if (
-                                    parts.size >= 2 &&
-                                    parts[0] == "spellDone" &&
-                                    parts[1].toLongOrNull() == spellingSession
-                                ) {
-                                    mainHandler.post {
-                                        spellingProgressCallback?.invoke(-1)
-                                    }
-                                }
-                            }
-
-                            @Deprecated("Deprecated in Java")
-                            override fun onError(utteranceId: String?) {
-                                mainHandler.post {
-                                    spellingProgressCallback?.invoke(-1)
-                                }
-                            }
-                        }
-                    )
-
-                    voicesChangedCallback?.invoke(getAvailableVoices())
-
-                    val action = pendingSpeechAction
-                    pendingSpeechAction = null
-                    action?.invoke()
-                } else {
-                    pendingSpeechAction = null
-                }
-            } else {
+            if (status != TextToSpeech.SUCCESS) {
+                speechReady = false
                 pendingSpeechAction = null
+                return@TextToSpeech
+            }
+
+            val languageResult = tts.setLanguage(speechLocale)
+
+            speechReady =
+                languageResult != TextToSpeech.LANG_MISSING_DATA &&
+                        languageResult != TextToSpeech.LANG_NOT_SUPPORTED
+
+            if (!speechReady) {
+                pendingSpeechAction = null
+                return@TextToSpeech
+            }
+
+            applySpeechSettings()
+            installUtteranceListener(tts)
+
+            voicesChangedCallback?.invoke(getAvailableVoices())
+
+            val action = pendingSpeechAction
+            pendingSpeechAction = null
+            action?.invoke()
+        }
+    }
+
+    private fun installUtteranceListener(tts: TextToSpeech) {
+        tts.setOnUtteranceProgressListener(
+            object : UtteranceProgressListener() {
+
+                override fun onStart(utteranceId: String?) {
+                    val parts = utteranceId?.split(":") ?: return
+
+                    if (parts.size != 3 || parts[0] != "spell") {
+                        return
+                    }
+
+                    val session = parts[1].toLongOrNull() ?: return
+                    val index = parts[2].toIntOrNull() ?: return
+
+                    dispatchSpellingProgress(session, index)
+                }
+
+                override fun onDone(utteranceId: String?) {
+                    val parts = utteranceId?.split(":") ?: return
+
+                    if (parts.size != 2 || parts[0] != "spellDone") {
+                        return
+                    }
+
+                    val session = parts[1].toLongOrNull() ?: return
+
+                    dispatchSpellingProgress(session, -1)
+                }
+
+                @Deprecated("Deprecated in Java")
+                override fun onError(utteranceId: String?) {
+                    handleUtteranceError(utteranceId)
+                }
+
+                override fun onError(utteranceId: String?, errorCode: Int) {
+                    handleUtteranceError(utteranceId)
+                }
+            }
+        )
+    }
+
+    /**
+     * Posts progress to the main thread and validates the session again
+     * when the callback executes. This prevents old speech callbacks
+     * from changing the progress of a newer spelling session.
+     */
+    private fun dispatchSpellingProgress(
+        session: Long,
+        index: Int
+    ) {
+        mainHandler.post {
+            if (
+                !released &&
+                session == spellingSession
+            ) {
+                spellingProgressCallback?.invoke(index)
             }
         }
+    }
+
+    private fun handleUtteranceError(utteranceId: String?) {
+        val parts = utteranceId?.split(":") ?: return
+
+        if (parts.size != 3 || parts[0] != "spell") {
+            if (parts.size != 2 || parts[0] != "spellDone") {
+                return
+            }
+        }
+
+        val session = parts[1].toLongOrNull() ?: return
+        dispatchSpellingProgress(session, -1)
     }
 
     private fun applySpeechSettings() {
         val tts = textToSpeech ?: return
 
-        tts.setSpeechRate(speechRate.coerceIn(0.5f, 2.0f))
+        tts.setSpeechRate(
+            speechRate.coerceIn(0.5f, 2.0f)
+        )
 
-        val voice = selectedVoiceId
-            ?.let { id ->
-                tts.voices?.firstOrNull { it.name == id }
-            }
+        val voice = selectedVoiceId?.let { id ->
+            tts.voices?.firstOrNull { it.name == id }
+        }
 
         if (voice != null && voice.locale.language == "en") {
             tts.voice = voice
@@ -132,31 +175,33 @@ class SpeechManager(context: Context) {
         }
     }
 
-    fun setSpellingProgressCallback(callback: ((Int) -> Unit)?) {
-        spellingProgressCallback = callback
-    }
+    fun setSpellingProgressCallback(callback: ((Int) -> Unit)?)
+    {spellingProgressCallback = callback}
 
     /**
-     * Notifies the caller when the TTS engine has initialized
-     * and its available English voices can be queried.
+     * Notifies the caller when TTS has initialized
+     * and available English voices can be queried.
      */
     fun setVoicesChangedCallback(
         callback: ((List<SpeechVoice>) -> Unit)?
     ) {
         voicesChangedCallback = callback
 
-        if (speechReady) {
+        if (speechReady && !released) {
             callback?.invoke(getAvailableVoices())
         }
     }
 
     /**
-     * Returns English voices reported by the installed TTS engine.
+     * Returns available English voices.
      * US English voices are listed first when available.
      */
     fun getAvailableVoices(): List<SpeechVoice> {
         val tts = textToSpeech ?: return emptyList()
-        if (!speechReady) return emptyList()
+
+        if (!speechReady || released) {
+            return emptyList()
+        }
 
         return tts.voices
             .orEmpty()
@@ -171,6 +216,7 @@ class SpeechManager(context: Context) {
             )
             .map { voice ->
                 val localeLabel = voice.locale.displayName
+
                 val qualityLabel = when (voice.quality) {
                     Voice.QUALITY_VERY_HIGH -> "Very high quality"
                     Voice.QUALITY_HIGH -> "High quality"
@@ -186,41 +232,46 @@ class SpeechManager(context: Context) {
     }
 
     /**
-     * Sets speech volume from 0.0 (silent) to 1.0 (full TTS volume).
+     * Sets speech volume from 0.0 (silent) to 1.0 (full volume).
      */
     fun setSpeechVolume(volume: Float) {
         speechVolume = volume.coerceIn(0.0f, 1.0f)
     }
 
     /**
-     * Sets the speech rate. A rate of 1.0 is the engine's normal rate.
+     * Sets speech rate. 1.0 is the engine's normal rate.
      */
     fun setSpeechSpeed(rate: Float) {
         speechRate = rate.coerceIn(0.5f, 2.0f)
-        if (speechReady) {
+
+        if (speechReady && !released) {
             textToSpeech?.setSpeechRate(speechRate)
         }
     }
 
     /**
      * Selects an installed English voice by its engine-provided name.
-     * Pass null to return to the default US English voice.
+     * Pass null to use the default US English voice.
      */
     fun setVoice(voiceId: String?) {
-        val tts = textToSpeech
+        if (released) return
 
         if (voiceId == null) {
             selectedVoiceId = null
+
             if (speechReady) {
-                tts?.setLanguage(speechLocale)
+                textToSpeech?.setLanguage(speechLocale)
             }
+
             return
         }
 
-        val voice = tts?.voices
-            ?.firstOrNull { it.name == voiceId }
+        val tts = textToSpeech ?: return
+        val voice = tts.voices?.firstOrNull {
+            it.name == voiceId && it.locale.language == "en"
+        }
 
-        if (voice != null && voice.locale.language == "en") {
+        if (voice != null) {
             selectedVoiceId = voice.name
 
             if (speechReady) {
@@ -230,7 +281,7 @@ class SpeechManager(context: Context) {
     }
 
     fun speakWord(word: String) {
-        if (word.isBlank()) return
+        if (word.isBlank() || released) return
 
         val tts = textToSpeech
 
@@ -240,10 +291,12 @@ class SpeechManager(context: Context) {
         }
 
         pendingSpeechAction = null
-        spellingSession += 1
+        spellingSession++
+
         spellingProgressCallback?.invoke(-1)
 
         tts.stop()
+
         tts.speak(
             word,
             TextToSpeech.QUEUE_FLUSH,
@@ -253,7 +306,7 @@ class SpeechManager(context: Context) {
     }
 
     fun spellWord(word: String) {
-        if (word.isBlank()) return
+        if (word.isBlank() || released) return
 
         val tts = textToSpeech
 
@@ -263,12 +316,15 @@ class SpeechManager(context: Context) {
         }
 
         pendingSpeechAction = null
+
         tts.stop()
 
-        spellingSession += 1
+        spellingSession++
         val session = spellingSession
+
         spellingProgressCallback?.invoke(-1)
 
+        // Numbers are spoken as numbers rather than spelled digit by digit.
         if (word.all { it.isDigit() }) {
             tts.speak(
                 word,
@@ -288,6 +344,7 @@ class SpeechManager(context: Context) {
         }
 
         letters.forEachIndexed { index, letter ->
+
             tts.speak(
                 letter.toString(),
                 if (index == 0) {
@@ -303,7 +360,7 @@ class SpeechManager(context: Context) {
                 tts.playSilentUtterance(
                     300L,
                     TextToSpeech.QUEUE_ADD,
-                    "pause_$index"
+                    "pause:$session:$index"
                 )
             }
         }
@@ -317,18 +374,29 @@ class SpeechManager(context: Context) {
     }
 
     fun stopSpeech() {
+        if (released) return
+
         pendingSpeechAction = null
-        spellingSession += 1
+        spellingSession++
+
         spellingProgressCallback?.invoke(-1)
+
         textToSpeech?.stop()
     }
 
     fun shutdown() {
-        textToSpeech?.shutdown()
-        textToSpeech = null
+        if (released) return
+
+        released = true
         speechReady = false
+        spellingSession++
+
         pendingSpeechAction = null
         spellingProgressCallback = null
         voicesChangedCallback = null
+
+        textToSpeech?.stop()
+        textToSpeech?.shutdown()
+        textToSpeech = null
     }
 }

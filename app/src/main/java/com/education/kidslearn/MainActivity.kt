@@ -56,6 +56,7 @@ private const val KEY_SPEECH_RATE = "spoken_audio_speed"
 private const val KEY_SPEECH_VOICE = "spoken_audio_voice"
 private const val KEY_QUIZ_QUESTION_COUNT = "quiz_question_count"
 private const val KEY_QUIZ_CATEGORIES = "quiz_selected_categories"
+private const val KEY_MUSIC_POSITION = "background_music_position"
 
 private fun musicVolumeForLevel(level: Int): Float {
     return when (level.coerceIn(0, 2)) {
@@ -78,9 +79,21 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         speechManager = SpeechManager(this)
-        audioController = AudioController(this)
 
         val prefs = getSharedPreferences(SETTINGS_PREFS, MODE_PRIVATE)
+
+        val initialMusicVolume = musicVolumeForLevel(
+            prefs.getInt(KEY_MUSIC_VOLUME_LEVEL, 1).coerceIn(0, 2)
+        )
+
+        val initialMusicEnabled = prefs.getBoolean(KEY_MUSIC, true)
+
+        audioController = AudioController(
+            context = this,
+            initialMusicPositionMs = savedInstanceState?.getInt(KEY_MUSIC_POSITION, 0) ?: 0,
+            initialMusicVolume = initialMusicVolume,
+            initialMusicEnabled = initialMusicEnabled
+        )
 
         setContent {
             var musicEnabled by rememberSaveable {
@@ -270,6 +283,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     KidsLearnApp(
                         musicEnabled = musicEnabled,
+                        onStopPictureSound = {audioController.stopPictureSounds()},
                         musicVolumeLevel = musicVolumeLevel,
                         effectsEnabled = effectsEnabled,
                         spokenWordsEnabled = spokenWordsEnabled,
@@ -321,6 +335,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        if (::audioController.isInitialized) {
+            outState.putInt(
+                KEY_MUSIC_POSITION,
+                audioController.getMusicPosition()
+            )
+        }
+        super.onSaveInstanceState(outState)
+    }
+
     override fun onStop() {
         if (::audioController.isInitialized) {
             audioController.pauseMusic()
@@ -345,6 +369,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun KidsLearnApp(
+    onStopPictureSound: () -> Unit,
     musicEnabled: Boolean,
     musicVolumeLevel: Int,
     effectsEnabled: Boolean,
@@ -363,7 +388,7 @@ private fun KidsLearnApp(
     onSpeak: (String) -> Unit,
     onSpell: (String) -> Unit,
     onStopSpeech: () -> Unit,
-    onSpellingProgress: (((Int) -> Unit)) -> Unit,
+    onSpellingProgress: (((Int) -> Unit)?) -> Unit,
     onPlaySoundEffect: () -> Unit,
     onPlayPictureSound: (String) -> Unit,
     quizQuestionCount: Int,
@@ -456,7 +481,8 @@ private fun KidsLearnApp(
                 onSpeak = onSpeak,
                 onSpell = onSpell,
                 onSpellingProgress = onSpellingProgress,
-                onPlayPictureSound = onPlayPictureSound
+                onPlayPictureSound = onPlayPictureSound,
+                onStopPictureSound = onStopPictureSound
             )
         }
     }

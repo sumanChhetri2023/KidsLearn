@@ -6,22 +6,26 @@ import android.media.MediaPlayer
 import android.media.SoundPool
 import com.education.kidslearn.R
 
-class AudioController(context: Context) {
+class AudioController(
+    context: Context,
+    initialMusicPositionMs: Int = 0,
+    initialMusicVolume: Float = 0.25f,
+    initialMusicEnabled: Boolean = true
+) {
 
     private val appContext = context.applicationContext
+    private val pictureSoundManager = PictureSoundManager(appContext)
 
     private var musicPlayer: MediaPlayer? = null
     private var soundPool: SoundPool? = null
     private var tapSoundId: Int = 0
     private var soundLoaded = false
 
-    private var musicEnabled = true
+    private var musicEnabled = initialMusicEnabled
     private var effectsEnabled = true
     private var released = false
-    private var musicVolume = 0.25f
+    private var musicVolume = initialMusicVolume.coerceIn(0f, 1f)
 
-    // Keep track of picture sounds so they can be stopped during cleanup.
-    private val pictureSoundPlayers = mutableSetOf<MediaPlayer>()
 
     init {
         val attributes = AudioAttributes.Builder()
@@ -49,6 +53,15 @@ class AudioController(context: Context) {
         )?.apply {
             isLooping = true
             setVolume(musicVolume, musicVolume)
+
+            // Restore the previous playback position after activity recreation.
+            if (initialMusicPositionMs > 0) {
+                val safePosition = initialMusicPositionMs.coerceIn(
+                    0,
+                    (duration - 1).coerceAtLeast(0)
+                )
+                seekTo(safePosition)
+            }
         }
     }
 
@@ -120,53 +133,21 @@ class AudioController(context: Context) {
         }
     }
 
-    fun playPictureSound(itemName: String) {
-        if (released || !effectsEnabled) return
-
-        val soundResource = when (itemName.trim().lowercase()) {
-            "lion" -> R.raw.lion
-            "dog" -> R.raw.dog
-            else -> return
-        }
-
-        val player = MediaPlayer.create(
-            appContext,
-            soundResource
-        ) ?: return
-
-        pictureSoundPlayers.add(player)
-
-        player.setOnCompletionListener { completedPlayer ->
-            releasePictureSoundPlayer(completedPlayer)
-        }
-
-        player.setOnErrorListener { failedPlayer, _, _ ->
-            releasePictureSoundPlayer(failedPlayer)
-            true
-        }
-
-        try {
-            player.start()
+    fun getMusicPosition(): Int {
+        return try {
+            musicPlayer?.currentPosition ?: 0
         } catch (_: IllegalStateException) {
-            releasePictureSoundPlayer(player)
+            0
         }
     }
 
-    private fun releasePictureSoundPlayer(player: MediaPlayer) {
-        // Remove first to avoid releasing the same player more than once.
-        if (pictureSoundPlayers.remove(player)) {
-            runCatching {
-                player.setOnCompletionListener(null)
-            }
+    fun playPictureSound(itemName: String) {
+        if (released || !effectsEnabled) return
+        pictureSoundManager.play(itemName)
+    }
 
-            runCatching {
-                player.setOnErrorListener(null)
-            }
-
-            runCatching {
-                player.release()
-            }
-        }
+    fun stopPictureSounds() {
+        pictureSoundManager.stop()
     }
 
     fun release() {
@@ -174,12 +155,8 @@ class AudioController(context: Context) {
 
         released = true
 
-        // Stop and release all active picture sounds.
-        pictureSoundPlayers.toList().forEach { player ->
-            releasePictureSoundPlayer(player)
-        }
+        pictureSoundManager.release()
 
-        // Stop background music before releasing its player.
         try {
             musicPlayer?.let { player ->
                 if (player.isPlaying) {
@@ -193,7 +170,6 @@ class AudioController(context: Context) {
         musicPlayer?.release()
         musicPlayer = null
 
-        // Release tap sound resources.
         soundPool?.setOnLoadCompleteListener(null)
         soundPool?.release()
         soundPool = null

@@ -26,7 +26,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -47,10 +46,10 @@ import com.education.kidslearn.nextCanvasColor
 import com.education.kidslearn.signatureBackground
 import com.education.kidslearn.QuizContent
 import com.education.kidslearn.ItemPicture
-import com.education.kidslearn.R
 import com.education.kidslearn.data.LearningCategory
 import com.education.kidslearn.data.LearningItem
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.DisposableEffect
 
 private fun quizPrompt(name: String): String {
     return if (name.isNotEmpty() && name.all { it.isDigit() }) {
@@ -80,167 +79,26 @@ private fun numberToWords(value: String): String {
  */
 private fun informationOptionsForItem(name: String): List<String> {
     return when (name.trim().lowercase()) {
-        "lion" -> listOf(
-            "Lions are big cats. A group of lions is called a pride.",
-            "Lions use their powerful paws and sharp claws to catch prey.",
-            "A lion's roar can be heard from far away."
-        )
-
-        "elephant" -> listOf(
-            "Elephants have trunks that help them smell, drink, and pick things up.",
-            "Elephants use their large ears to help cool their bodies.",
-            "An elephant is the largest living land animal."
-        )
-
-        "panda" -> listOf(
-            "Giant pandas eat mostly bamboo.",
-            "Giant pandas have black-and-white fur.",
-            "Pandas use their strong jaws to chew tough bamboo."
-        )
-
-        "giraffe" -> listOf(
-            "Giraffes are the tallest land animals and have very long necks.",
-            "A giraffe's long tongue helps it reach leaves on trees.",
-            "Every giraffe has a unique pattern of spots."
-        )
-
-        "zebra" -> listOf(
-            "Every zebra has a unique pattern of stripes.",
-            "Zebras are members of the horse family.",
-            "Zebras use their strong legs to run away from danger."
-        )
-
-        "monkey" -> listOf(
-            "Monkeys use their hands to hold food and climb.",
-            "Many monkeys live in groups.",
-            "Monkeys use different calls to communicate with each other."
-        )
-
-        "rabbit" -> listOf(
-            "Rabbits have long ears and strong hind legs for jumping.",
-            "Rabbits use their teeth to nibble plants.",
-            "A rabbit's ears can help it hear sounds around it."
-        )
-
-        "tiger" -> listOf(
-            "Tigers are big cats with orange fur and dark stripes.",
-            "Every tiger has its own stripe pattern.",
-            "Tigers are powerful swimmers."
-        )
-
-        "dog" -> listOf(
-            "Dogs have a strong sense of smell and can learn many commands.",
-            "Dogs use their tails and body movements to communicate.",
-            "Dogs belong to the same animal family as wolves."
-        )
-
-        "cat" -> listOf(
-            "Cats use their whiskers to help sense the space around them.",
-            "Cats have sharp claws that can retract.",
-            "Cats use their ears to locate sounds."
-        )
-
-        "cow" -> listOf(
-            "Cows are farm animals that eat grass and other plants.",
-            "Cows have four stomach compartments that help digest grass.",
-            "Cows communicate using sounds called moos."
-        )
-
-        "horse" -> listOf(
-            "Horses are strong animals that can run quickly.",
-            "A horse can sleep while standing up.",
-            "Horses use their ears to show attention and mood."
-        )
-
-        "parrot" -> listOf(
-            "Many parrots can imitate sounds and have colourful feathers.",
-            "Parrots use their strong, curved beaks to crack seeds and nuts.",
-            "Many parrots use their feet to hold food."
-        )
-
-        "peacock" -> listOf(
-            "A peacock can spread its colourful tail feathers like a fan.",
-            "Peacocks are male peafowl.",
-            "Peafowl use their calls to communicate."
-        )
-
-        "owl" -> listOf(
-            "Owls have excellent hearing and many are active at night.",
-            "Owls can turn their heads much farther than humans can.",
-            "Many owls fly very quietly when hunting."
-        )
-
-        "duck" -> listOf(
-            "Ducks have webbed feet that help them swim.",
-            "Duck feathers help keep water away from their skin.",
-            "Ducks use their bills to find food."
-        )
-
-        "penguin" -> listOf(
-            "Penguins are birds that cannot fly but are excellent swimmers.",
-            "Penguins use their flippers to move through water.",
-            "Penguins have feathers that help keep them warm."
-        )
-
-        "car" -> listOf(
-            "A car is a road vehicle used to carry people.",
-            "Most cars have four wheels.",
-            "Cars use an engine or an electric motor to move."
-        )
-
-        "bus" -> listOf(
-            "A bus carries many passengers from one place to another.",
-            "Buses are often used for public transport.",
-            "Some buses run on electricity instead of fuel."
-        )
-
-        "train" -> listOf(
-            "A train travels on railway tracks and can carry people or goods.",
-            "A train can pull many carriages.",
-            "Trains are useful for travelling long distances."
-        )
-
-        "airplane" -> listOf(
-            "An airplane flies through the air using its wings and engines.",
-            "Airplanes can carry passengers or cargo.",
-            "Pilots control an airplane during flight."
-        )
-
-        "bicycle" -> listOf(
-            "A bicycle has two wheels and is powered by pedalling.",
-            "A bicycle's brakes help the rider slow down and stop.",
-            "Wearing a helmet helps protect a cyclist's head."
-        )
-
-        "motorcycle" -> listOf(
-            "A motorcycle is a motor-powered two-wheeled vehicle.",
-            "A motorcycle is controlled using handlebars.",
-            "A helmet helps protect a motorcycle rider's head."
-        )
-
-        "truck" -> listOf(
-            "A truck is often used to transport goods and heavy loads.",
-            "Some trucks carry food, building materials, or furniture.",
-            "Large trucks can transport goods over long distances."
-        )
-
-        "boat" -> listOf(
-            "A boat travels on water.",
-            "Boats can be powered by paddles, sails, or motors.",
-            "Some boats are used for fishing and others for travel."
-        )
-
-        "helicopter" -> listOf(
-            "A helicopter uses rotating blades to fly.",
-            "A helicopter can take off and land vertically.",
-            "Helicopters are used for rescue work and transport."
-        )
-
-        "tractor" -> listOf(
-            "A tractor is a powerful vehicle often used on farms.",
-            "Tractors can pull tools and trailers.",
-            "Farmers use tractors to help prepare fields."
-        )
+        "bear" -> listOf( "Bears have an excellent sense of smell that helps them find food from miles away.", "Some bears sleep all winter long in a deep sleep called hibernation.", "A baby bear is called a cub and stays with its mother for a few years." )
+        "cat" -> listOf( "Cats can jump up to six times their height in a single bound.", "Cats spend about half of their waking hours grooming and cleaning themselves.", "A cat uses its whiskers like feelers to see if it can fit through tight spaces." )
+        "cow" -> listOf( "Cows have four stomach compartments that help them digest tough grass.", "Cows are social animals and can make special best friends within their herd.", "A cow can smell things that are up to six miles away." )
+        "deer" -> listOf( "Male deer grow new antlers every year and shed the old ones in the winter.", "Deer are excellent runners and can jump very high to escape danger.", "Baby deer, called fawns, have white spots that help them hide in the forest." )
+        "dog" -> listOf( "Dogs have a sense of smell that is thousands of times stronger than a human's.", "When a dog wags its tail to the right, it usually means they are happy.", "Dogs can understand many human words and body language signals." )
+        "elephant" -> listOf( "Elephants are the largest land animals alive on Earth today.", "An elephant uses its long trunk like a hand to breathe, drink, and grab food.", "Elephants can communicate with each other using deep sounds that humans cannot hear." )
+        "fox" -> listOf( "Foxes use their big, bushy tails like blankets to keep warm in the winter.", "A fox has amazing hearing and can even hear tiny mice squeaking under the snow.", "Foxes belong to the same animal family as dogs, but they can climb trees like cats." )
+        "giraffe" -> listOf( "Giraffes are the tallest mammals on Earth, and even their tongues can be a foot and a half long.", "A giraffe's long neck has the exact same number of bones as a human neck.", "Giraffes only need to sleep for about thirty minutes to two hours every day." )
+        "goat" -> listOf( "Goats have rectangular pupils in their eyes that help them see all around themselves.", "Goats are excellent climbers and can balance on very narrow mountain ledges.", "Baby goats are called kids, just like human children." )
+        "hippo" -> listOf( "Hippos spend most of their day resting in water to keep their skin cool and moist.", "Despite being very large and heavy, hippos can run faster than humans on land.", "A hippo's sweat looks bright pink and acts like a natural sunscreen." )
+        "horse" -> listOf( "Horses can sleep both while standing up and while lying down.", "Horses have bigger eyes than any other mammal that lives on land.", "A horse's teeth take up more space in its head than its brain does." )
+        "kangaroo" -> listOf( "Kangaroos use their large, powerful hind legs to hop instead of walk.", "Mother kangaroos carry their tiny babies inside a built-in belly pocket called a pouch.", "A kangaroo uses its big, strong tail like a third leg to help it balance." )
+        "lion" -> listOf( "Lions are big cats. A group of lions is called a pride.", "Lions use their powerful paws and sharp claws to catch prey.", "A lion's roar can be heard from far away." )
+        "monkey" -> listOf( "Many monkeys use their long tails like an extra hand to swing from tree branches.", "Monkeys express affection and stay clean by grooming each other's fur.", "Monkeys are highly intelligent animals that can learn to use simple tools." )
+        "panda" -> listOf( "Giant pandas spend up to twelve hours every day munching on green bamboo.", "Pandas have a special wrist bone that works like a thumb to help them hold bamboo sticks.", "Baby pandas are born completely pink, blind, and are about the size of a stick of butter." )
+        "rabbit" -> listOf( "Rabbits have long ears that can turn in different directions to listen for danger.", "A happy rabbit will perform a joyful twist in the air called a binky.", "A rabbit's teeth never stop growing, so they need to chew on grass to wear them down." )
+        "sheep" -> listOf( "Sheep are covered in thick, fluffy wool that humans use to make warm clothes.", "Sheep have great memories and can recognize the faces of their friends for years.", "When sheep are sick, they can find and eat specific plants that make them feel better." )
+        "tiger" -> listOf( "Tigers are the biggest species of cats in the whole world.", "Every tiger has a completely unique pattern of stripes, just like human fingerprints.", "Unlike most pet cats, tigers love the water and are excellent swimmers." )
+        "wolf" -> listOf( "Wolves live and hunt together in close-knit family groups called packs.", "Wolves howl to talk to their pack members and warn other wolves to stay away.", "A wolf can walk and run for many miles a day without getting tired." )
+        "zebra" -> listOf( "Zebras have black and white stripes that help confuse biting insects and predators.", "Every zebra has a unique pattern of stripes that is different from any other zebra.", "Zebras sleep standing up so they can quickly run away if danger arrives." )
 
         else -> listOf(
             "This is a $name.",
@@ -253,22 +111,8 @@ private fun informationOptionsForItem(name: String): List<String> {
 /**
  * Shared action controls for both portrait and landscape layouts.
  */
-
 private fun categoryHasSounds(categoryName: String): Boolean {
-    return categoryName.trim().lowercase() in setOf(
-        "animals",
-        "birds",
-        "vehicles",
-        "insects"
-    )
-}
-
-private fun getSoundResource(itemName: String): Int? {
-    return when (itemName.trim().lowercase()) {
-        "lion" -> R.raw.lion
-        "dog" -> R.raw.dog
-        else -> null
-    }
+    return categoryName.trim().equals("Animals", ignoreCase = true)
 }
 
 @Composable
@@ -283,7 +127,6 @@ private fun LearningActionButtons(
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Spell button: shown in every learning category.
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             IconButton(onClick = onSpellClick) {
                 Text(text = "🔤", fontSize = 28.sp)
@@ -291,7 +134,6 @@ private fun LearningActionButtons(
             Text(text = "Spell", fontSize = 13.sp)
         }
 
-        // Sound button: shown only when this category supports sounds.
         if (showSound) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 IconButton(onClick = onSoundClick) {
@@ -307,7 +149,6 @@ private fun LearningActionButtons(
             }
         }
 
-        // Info button: shown in every learning category.
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             IconButton(onClick = onInfoClick) {
                 Text(
@@ -333,29 +174,38 @@ fun LearningScreen(
     onBack: () -> Unit,
     onSpeak: (String) -> Unit,
     onSpell: (String) -> Unit,
-    onSpellingProgress: (((Int) -> Unit)) -> Unit,
-    onPlayPictureSound: (String) -> Unit
+    onSpellingProgress: (((Int) -> Unit)?) -> Unit,
+    onPlayPictureSound: (String) -> Unit,
+    onStopPictureSound: () -> Unit
 ) {
-    // Save the shuffled item order across configuration changes such as rotation.
-    // Store item names because rememberSaveable can reliably restore a list of strings.
+    // Numbers always retain their original sequential order.
+    // Every other category keeps its shuffled order.
     val savedItemOrder = rememberSaveable(category.name) {
-        mutableStateOf(items.shuffled().map { it.name })
+        mutableStateOf(
+            if (category.name == "Numbers") {
+                items.map { it.name }
+            } else {
+                items.shuffled().map { it.name }
+            }
+        )
     }
 
-    val shuffledItems = remember(category.name, savedItemOrder.value, items) {
-        savedItemOrder.value.mapNotNull { savedName ->
-            items.firstOrNull { it.name == savedName }
+    val orderedItems = remember(category.name, savedItemOrder.value, items) {
+        if (category.name == "Numbers") {
+            items
+        } else {
+            savedItemOrder.value.mapNotNull { savedName ->
+                items.firstOrNull { it.name == savedName }
+            }
         }
     }
 
-    // Preserve the selected position when the activity is recreated by rotation.
     var currentIndex by rememberSaveable(category.name) {
         mutableStateOf(0)
     }
 
-    var totalDrag by remember {
-        mutableFloatStateOf(0f)
-    }
+    // Track swipe distance without triggering recomposition on every drag event.
+    val totalDrag = remember(category.name) { floatArrayOf(0f) }
 
     val canvasScale = remember { Animatable(1f) }
     val animationScope = rememberCoroutineScope()
@@ -363,13 +213,11 @@ fun LearningScreen(
     val bitmapCache = remember { mutableMapOf<String, ImageBitmap>() }
     val swipeThresholdPx = with(LocalDensity.current) { 60.dp.toPx() }
 
-    // Quiz sessions use exactly 20 distinct items when at least 20 are available.
-    // Other learning categories continue to use their full shuffled item list.
     val sessionItems =
         if (category.name == "Quiz") {
-            shuffledItems.take(quizQuestionCount.coerceIn(1, 20))
+            orderedItems.take(quizQuestionCount.coerceIn(1, 20))
         } else {
-            shuffledItems
+            orderedItems
         }
 
     val item = sessionItems.getOrNull(currentIndex)
@@ -384,8 +232,6 @@ fun LearningScreen(
         mutableStateOf(canvasColors.random())
     }
 
-    // Remember the last Info fact separately for each item.
-    // The next Info press for that item will avoid the previous fact.
     var lastInfoFactByItem by remember(category.name) {
         mutableStateOf<Map<String, String>>(emptyMap())
     }
@@ -404,26 +250,31 @@ fun LearningScreen(
     }
 
     var spellingIndex by remember { mutableStateOf(-1) }
+
     var quizMode by rememberSaveable(category.name) {
         mutableStateOf(category.name == "Quiz")
     }
+
     var quizFeedback by rememberSaveable(category.name) {
         mutableStateOf<String?>(null)
     }
+
     var quizAnsweredCorrectly by rememberSaveable(category.name) {
         mutableStateOf(false)
     }
+
     var quizFirstAttemptCorrect by rememberSaveable(category.name) {
         mutableStateOf(true)
     }
+
     var quizScore by rememberSaveable(category.name) {
         mutableStateOf(0)
     }
+
     var quizComplete by rememberSaveable(category.name) {
         mutableStateOf(false)
     }
 
-    // Persist which questions have already received their first answer.
     var attemptedQuestionIndices by rememberSaveable(category.name) {
         mutableStateOf(emptyList<Int>())
     }
@@ -437,23 +288,28 @@ fun LearningScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
+    DisposableEffect(Unit) {
+        // Register the spelling progress callback while this screen is active.
         onSpellingProgress { index ->
             spellingIndex = index
         }
+
+        // Unregister it when this screen leaves the composition.
+        onDispose {
+            onSpellingProgress(null)
+            onStopPictureSound()
+        }
     }
 
-    // Remember the last quiz prompt across orientation changes.
     var lastSpokenQuizItem by rememberSaveable(category.name) {
         mutableStateOf<String?>(null)
     }
 
     LaunchedEffect(category.name, item?.name) {
+        onStopPictureSound()
         canvasScale.snapTo(1f)
         spellingIndex = -1
 
-        // Do not reset quiz answer/feedback state in this effect.
-        // Explicit navigation resets the quiz answer state when needed.
         item?.let {
             canvasColor = nextCanvasColor(canvasColor)
 
@@ -516,13 +372,11 @@ fun LearningScreen(
                         onSpeak(quizPrompt(item.name))
                     },
                     onChoose = { selected ->
-                        // Once correct, ignore further taps for this question.
                         if (!quizAnsweredCorrectly) {
                             val correct = selected.name == item.name
                             val hasAnsweredThisQuestion =
                                 currentIndex in attemptedQuestionIndices
 
-                            // Only the first attempt can earn a point.
                             if (!hasAnsweredThisQuestion) {
                                 attemptedQuestionIndices =
                                     attemptedQuestionIndices + currentIndex
@@ -602,6 +456,7 @@ fun LearningScreen(
                                             tween(180)
                                         )
                                     }
+                                    onStopPictureSound()
                                     onSpeak(item.name)
                                 }
                                 .pointerInput(
@@ -611,26 +466,26 @@ fun LearningScreen(
                                 ) {
                                     detectHorizontalDragGestures(
                                         onHorizontalDrag = { _, dragAmount ->
-                                            totalDrag += dragAmount
+                                            totalDrag[0] += dragAmount
                                         },
                                         onDragEnd = {
-                                            if (shuffledItems.isNotEmpty()) {
-                                                if (totalDrag < -swipeThresholdPx) {
+                                            if (sessionItems.isNotEmpty()) {
+                                                if (totalDrag[0] < -swipeThresholdPx) {
                                                     currentIndex =
-                                                        (currentIndex + 1) % shuffledItems.size
-                                                } else if (totalDrag > swipeThresholdPx) {
+                                                        (currentIndex + 1) % sessionItems.size
+                                                } else if (totalDrag[0] > swipeThresholdPx) {
                                                     currentIndex =
                                                         if (currentIndex == 0) {
-                                                            shuffledItems.lastIndex
+                                                            sessionItems.lastIndex
                                                         } else {
                                                             currentIndex - 1
                                                         }
                                                 }
                                             }
-                                            totalDrag = 0f
+                                            totalDrag[0] = 0f
                                         },
                                         onDragCancel = {
-                                            totalDrag = 0f
+                                            totalDrag[0] = 0f
                                         }
                                     )
                                 },
@@ -691,15 +546,13 @@ fun LearningScreen(
                         LearningActionButtons(
                             showSound = categoryHasSounds(category.name),
                             onSpellClick = {
+                                onStopPictureSound()
                                 spellingIndex = -1
                                 onSpell(spellingWord)
                             },
-                            onSoundClick = {
-                                getSoundResource(item.name)?.let {
-                                    onPlayPictureSound(item.name)
-                                }
-                            },
+                            onSoundClick = {onPlayPictureSound(item.name)},
                             onInfoClick = {
+                                onStopPictureSound()
                                 speakRandomInfo(item.name)
                             }
                         )
@@ -707,7 +560,7 @@ fun LearningScreen(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
-                            text = "${currentIndex + 1} of ${shuffledItems.size}",
+                            text = "${currentIndex + 1} of ${sessionItems.size}",
                             fontSize = 14.sp,
                             color = Color(0xFF546E7A)
                         )
@@ -762,6 +615,7 @@ fun LearningScreen(
                                             tween(180)
                                         )
                                     }
+                                    onStopPictureSound()
                                     onSpeak(item.name)
                                 }
                                 .pointerInput(
@@ -771,26 +625,26 @@ fun LearningScreen(
                                 ) {
                                     detectHorizontalDragGestures(
                                         onHorizontalDrag = { _, dragAmount ->
-                                            totalDrag += dragAmount
+                                            totalDrag[0] += dragAmount
                                         },
                                         onDragEnd = {
-                                            if (shuffledItems.isNotEmpty()) {
-                                                if (totalDrag < -swipeThresholdPx) {
+                                            if (sessionItems.isNotEmpty()) {
+                                                if (totalDrag[0] < -swipeThresholdPx) {
                                                     currentIndex =
-                                                        (currentIndex + 1) % shuffledItems.size
-                                                } else if (totalDrag > swipeThresholdPx) {
+                                                        (currentIndex + 1) % sessionItems.size
+                                                } else if (totalDrag[0] > swipeThresholdPx) {
                                                     currentIndex =
                                                         if (currentIndex == 0) {
-                                                            shuffledItems.lastIndex
+                                                            sessionItems.lastIndex
                                                         } else {
                                                             currentIndex - 1
                                                         }
                                                 }
                                             }
-                                            totalDrag = 0f
+                                            totalDrag[0] = 0f
                                         },
                                         onDragCancel = {
-                                            totalDrag = 0f
+                                            totalDrag[0] = 0f
                                         }
                                     )
                                 },
@@ -842,15 +696,13 @@ fun LearningScreen(
                         LearningActionButtons(
                             showSound = categoryHasSounds(category.name),
                             onSpellClick = {
+                                onStopPictureSound()
                                 spellingIndex = -1
                                 onSpell(spellingWord)
                             },
-                            onSoundClick = {
-                                getSoundResource(item.name)?.let {
-                                    onPlayPictureSound(item.name)
-                                }
-                            },
+                            onSoundClick = {onPlayPictureSound(item.name)},
                             onInfoClick = {
+                                onStopPictureSound()
                                 speakRandomInfo(item.name)
                             }
                         )
@@ -858,7 +710,7 @@ fun LearningScreen(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
-                            text = "${currentIndex + 1} of ${shuffledItems.size}",
+                            text = "${currentIndex + 1} of ${sessionItems.size}",
                             fontSize = 14.sp,
                             color = Color(0xFF546E7A)
                         )
